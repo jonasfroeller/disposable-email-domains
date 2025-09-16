@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -157,6 +158,8 @@ code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberat
 		'https://gist.githubusercontent.com/ammarshah/f5c2624d767f91a7cbdc4e54db8dd0bf/raw/660fd949eba09c0b86574d9d3aa0f2137161fc7c/all_email_provider_domains.txt',
 		'https://github.com/gblmarquez/disposable-email-domains/raw/refs/heads/main/disposable_email_domains_blocklist.txt',
 		'https://raw.githubusercontent.com/unkn0w/disposable-email-domain-list/refs/heads/main/domains.txt',
+		'https://raw.githubusercontent.com/ivolo/disposable-email-domains/refs/heads/master/wildcard.json',
+		'https://github.com/IntegerAlex/disposable-email-detector/raw/refs/heads/main/index.json'
       ];
 
       const ta = document.getElementById('urlsInput');
@@ -267,7 +270,36 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 					respondError(w, http.StatusBadRequest, "fetch url status: "+resp.Status)
 					return
 				}
-				s := bufio.NewScanner(resp.Body)
+				const maxURLBody = 12 << 20 // 12MB
+				lr := &io.LimitedReader{R: resp.Body, N: maxURLBody + 1}
+				data, err := io.ReadAll(lr)
+				_ = resp.Body.Close()
+				if err != nil {
+					respondError(w, http.StatusBadRequest, "failed reading url body: "+err.Error())
+					return
+				}
+				if int64(len(data)) > maxURLBody {
+					respondError(w, http.StatusBadRequest, "url body too large")
+					return
+				}
+
+				trimmed := bytes.TrimSpace(data)
+
+				// Try to parse as JSON array of strings first
+				var arr []string
+				if len(trimmed) > 0 && trimmed[0] == '[' && json.Unmarshal(trimmed, &arr) == nil {
+					for _, v := range arr {
+						v = strings.ToLower(strings.TrimSpace(v))
+						if v == "" || strings.HasPrefix(v, "#") {
+							continue
+						}
+						candidates = append(candidates, v)
+					}
+					continue
+				}
+
+				// Fallback to plaintext, one domain per non-empty, non-comment line
+				s := bufio.NewScanner(bytes.NewReader(data))
 				for s.Scan() {
 					line := strings.ToLower(strings.TrimSpace(s.Text()))
 					if line == "" || strings.HasPrefix(line, "#") {
@@ -276,11 +308,9 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 					candidates = append(candidates, line)
 				}
 				if err := s.Err(); err != nil {
-					_ = resp.Body.Close()
 					respondError(w, http.StatusBadRequest, "failed reading url body: "+err.Error())
 					return
 				}
-				_ = resp.Body.Close()
 			}
 		}
 		if len(candidates) == 0 {
