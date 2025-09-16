@@ -1,4 +1,4 @@
-# Disposable Email Domains Service (Go, net/http)
+# Disposable Email Domains Service Checker
 
 A small, production-ready HTTP service using only Go's standard library to check disposable/temporary email domains and manage block/allow lists.
 
@@ -77,3 +77,15 @@ What’s not included (yet)
 Notes
 - The server enforces application/json for POST/PUT/PATCH and rejects oversized/invalid payloads.
 - For production, consider adding persistence, structured logging, metrics, and TLS/identity at the edge.
+
+Similar
+- https://github.com/disposable-email-domains/disposable-email-domains
+- https://github.com/disposable/disposable-email-domains
+- https://github.com/7c/fakefilter
+- https://github.com/FGRibreau/mailchecker
+- https://github.com/ivolo/disposable-email-domains (https://github.com/ivolo/disposable-email-domains/blob/master/wildcard.json)
+- https://github.com/amieiro/disposable-email-domains
+- https://gist.github.com/ammarshah/f5c2624d767f91a7cbdc4e54db8dd0bf
+- https://github.com/gblmarquez/disposable-email-domains
+- https://github.com/unkn0w/disposable-email-domain-list
+- https://github.com/IntegerAlex/disposable-email-detector (https://github.com/IntegerAlex/disposable-email-detector/blob/main/index.json)

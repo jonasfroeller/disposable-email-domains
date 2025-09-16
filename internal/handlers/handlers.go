@@ -150,6 +150,13 @@ code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberat
     (() => {
       const defaultUrls = [
         'https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/refs/heads/main/disposable_email_blocklist.conf',
+		'https://disposable.github.io/disposable-email-domains/domains.txt',
+		'https://raw.githubusercontent.com/7c/fakefilter/refs/heads/main/txt/data.txt',
+		'https://raw.githubusercontent.com/FGRibreau/mailchecker/refs/heads/master/list.txt',
+		'https://raw.githubusercontent.com/amieiro/disposable-email-domains/refs/heads/master/denyDomains.txt',
+		'https://gist.githubusercontent.com/ammarshah/f5c2624d767f91a7cbdc4e54db8dd0bf/raw/660fd949eba09c0b86574d9d3aa0f2137161fc7c/all_email_provider_domains.txt',
+		'https://github.com/gblmarquez/disposable-email-domains/raw/refs/heads/main/disposable_email_domains_blocklist.txt',
+		'https://raw.githubusercontent.com/unkn0w/disposable-email-domain-list/refs/heads/main/domains.txt',
       ];
 
       const ta = document.getElementById('urlsInput');
