@@ -89,3 +89,5 @@ Similar
 - https://github.com/gblmarquez/disposable-email-domains
 - https://github.com/unkn0w/disposable-email-domain-list
 - https://github.com/IntegerAlex/disposable-email-detector (https://github.com/IntegerAlex/disposable-email-detector/blob/main/index.json)
+
+https://www.usercheck.com/guides/best-github-lists-for-disposable-email-domains
