@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log"
@@ -14,6 +15,34 @@ import (
 	"disposable-email-domains/internal/router"
 	"disposable-email-domains/internal/storage"
 )
+
+func loadDotEnv(logger *log.Logger, path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	data, err := io.ReadAll(f)
+	if err != nil {
+		logger.Printf("dotenv: read error: %v", err)
+		return
+	}
+	for _, raw := range bytes.Split(data, []byte{'\n'}) {
+		raw = bytes.TrimSpace(raw)
+		if len(raw) == 0 || raw[0] == '#' {
+			continue
+		}
+		eq := bytes.IndexByte(raw, '=')
+		if eq <= 0 {
+			continue
+		}
+		key := string(raw[:eq])
+		val := string(raw[eq+1:])
+		if _, exists := os.LookupEnv(key); !exists {
+			_ = os.Setenv(key, val)
+		}
+	}
+}
 
 func fetchPSL(logger *log.Logger, dest string) {
 	client := &http.Client{Timeout: 15 * time.Second}
@@ -49,6 +78,8 @@ func fetchPSL(logger *log.Logger, dest string) {
 func main() {
 	logger := log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds|log.LUTC)
 
+	loadDotEnv(logger, ".env")
+
 	fetchPSL(logger, "public_suffix_list.dat")
 
 	store := storage.NewMemoryStore()
@@ -58,7 +89,11 @@ func main() {
 		logger.Printf("failed to load lists: %v", err)
 	}
 
-	mux := router.New(store, logger, checker)
+	adminToken := os.Getenv("ADMIN_TOKEN")
+	if adminToken == "" {
+		logger.Println("warning: ADMIN_TOKEN not set - server running in read-only mode (mutating endpoints disabled)")
+	}
+	mux := router.New(store, logger, checker, adminToken)
 
 	srv := &http.Server{
 		Addr:              ":8080",

@@ -17,7 +17,7 @@ type storageAPI interface {
 	Delete(id string) bool
 }
 
-func New(store storageAPI, logger *log.Logger, checker *domain.Checker) http.Handler {
+func New(store storageAPI, logger *log.Logger, checker *domain.Checker, adminToken string) http.Handler {
 	api := &handlers.API{Store: store, Logger: logger, Check: checker}
 
 	mux := http.NewServeMux()
@@ -48,6 +48,7 @@ func New(store storageAPI, logger *log.Logger, checker *domain.Checker) http.Han
 	return middleware.Chain(mux,
 		middleware.SecurityHeaders(),
 		middleware.Recover(logger),
+		middleware.AdminGuard(adminToken, logger),
 		middleware.Logging(logger),
 	)
 }

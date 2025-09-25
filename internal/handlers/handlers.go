@@ -107,7 +107,6 @@ code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberat
         <div class="row"><span class="method get">GET</span><span class="path">/blocklist</span><span class="desc">List blocklist (JSON)</span></div>
         <div class="row"><span class="method post">POST</span><span class="path">/blocklist</span><span class="desc">Extend blocklist (JSON)</span></div>
         <div class="row"><span class="method get">GET</span><span class="path">/check</span><span class="desc">JSON check via ?q=</span></div>
-        <div class="row"><span class="method post">POST</span><span class="path">/check</span><span class="desc">JSON check (body {"input":"..."})</span></div>
         <div class="row"><span class="method get">GET</span><span class="path">/check/emails/{email}</span><span class="desc">Check email (JSON)</span></div>
         <div class="row"><span class="method get">GET</span><span class="path">/check/domains/{domain}</span><span class="desc">Check domain (JSON)</span></div>
         <div class="row"><span class="method get">GET</span><span class="path">/validate</span><span class="desc">Validate lists (JSON)</span></div>
@@ -124,23 +123,24 @@ code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberat
       <h2>Quick start</h2>
       <div class="code"><code>curl -sS http://` + host + `/healthz</code></div>
       <div class="code"><code>curl -sS http://` + host + `/blocklist</code></div>
-      <div class="code"><code>curl -sS -H "Content-Type: application/json" -d '{"entries":["foo.com","bar.io"]}' http://` + host + `/blocklist</code></div>
-      <div class="code"><code>curl -sS -H "Content-Type: application/json" -d '{"url":"https://example.com/list.txt"}' http://` + host + `/blocklist</code></div>
+	  <div class="code"><code>curl -sS -H "X-Admin-Token: &lt;token&gt;" -H "Content-Type: application/json" -d '{"entries":["foo.com","bar.io"]}' http://` + host + `/blocklist</code></div>
+	  <div class="code"><code>curl -sS -H "X-Admin-Token: &lt;token&gt;" -H "Content-Type: application/json" -d '{"url":"https://example.com/list.txt"}' http://` + host + `/blocklist</code></div>
       <div class="code"><code>curl -sS 'http://` + host + `/check?q=test@example.com'</code></div>
       <div class="code"><code>curl -sS http://` + host + `/validate</code></div>
       <div class="code"><code>http://` + host + `/report</code></div>
       <div class="small" style="padding:0 14px 12px 14px;color:#9fb3d9">Tip: add “| jq” to pretty-print JSON if you have jq installed.</div>
     </div>
 
-    <div class="panel" style="margin-top:16px">
+	<div class="panel" style="margin-top:16px">
       <h2>Bulk add from URLs</h2>
       <div class="list">
         <div class="row" style="display:block">
           <div class="small" style="margin-bottom:8px">Paste one or more URLs (one per line). Each URL should point to a plaintext list where non-empty, non-comment lines are domains.</div>
           <textarea id="urlsInput" rows="6" style="width:100%;background:#0b1326;border:1px solid #172243;border-radius:10px;color:#d1e9ff;padding:12px;line-height:1.6" placeholder="https://example.com/list1.txt&#10;https://example.com/list2.txt"></textarea>
-          <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+		  <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <button id="addUrlsBtn" style="background:#132042;border:1px solid #1f2c4a;color:#9cc2ff;border-radius:8px;padding:8px 12px;cursor:pointer">Add to blocklist</button>
             <label class="small" style="display:flex;align-items:center;gap:6px"><input id="reloadAfter" type="checkbox" checked /> <span>Reload lists after adding</span></label>
+			<input id="adminTokenInput" type="password" placeholder="Admin token" autocomplete="off" style="flex:1;min-width:200px;background:#0b1326;border:1px solid #172243;border-radius:8px;color:#d1e9ff;padding:8px" />
           </div>
           <div id="urlsResult" style="display:none;margin-top:10px;width:100%;background:#0b1326;border:1px solid #172243;border-radius:10px;color:#d1e9ff;padding:10px;white-space:pre-wrap"></div>
         </div>
@@ -182,15 +182,25 @@ code{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberat
         resEl.style.display = 'block';
         resEl.textContent = 'Processing ' + urls.length + ' URL(s)...';
         try {
-          const resp = await fetch('/blocklist' + (reload ? '?reload=true' : ''), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls })
-          });
+			const token = (document.getElementById('adminTokenInput') || {}).value || '';
+			if (!token) {
+				resEl.style.display = 'block';
+				resEl.textContent = 'Admin token required.';
+				return;
+			}
+			const resp = await fetch('/blocklist' + (reload ? '?reload=true' : ''), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+				body: JSON.stringify({ urls })
+			});
           const data = await resp.json().catch(() => ({}));
           if (!resp.ok) {
             resEl.style.display = 'block';
-            resEl.textContent = 'Error: ' + (data.error || (resp.status + ' ' + resp.statusText));
+			if (resp.status === 401 || resp.status === 403) {
+				resEl.textContent = 'Auth error: ' + (data.error || 'unauthorized');
+			} else {
+				resEl.textContent = 'Error: ' + (data.error || (resp.status + ' ' + resp.statusText));
+			}
             return;
           }
           resEl.style.display = 'block';
@@ -473,22 +483,8 @@ func (a *API) CheckHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		res := a.Check.Check(q)
 		respondJSON(w, http.StatusOK, res)
-	case http.MethodPost:
-		var payload struct {
-			Input string `json:"input"`
-		}
-		if err := decodeJSON(w, r, &payload, 1<<20); err != nil {
-			respondError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if strings.TrimSpace(payload.Input) == "" {
-			respondError(w, http.StatusBadRequest, "input is required")
-			return
-		}
-		res := a.Check.Check(payload.Input)
-		respondJSON(w, http.StatusOK, res)
 	default:
-		respondMethodNotAllowed(w, http.MethodGet, http.MethodPost)
+		respondMethodNotAllowed(w, http.MethodGet)
 	}
 }
 
