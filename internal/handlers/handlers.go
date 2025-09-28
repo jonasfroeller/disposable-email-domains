@@ -622,12 +622,15 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 
 		// Collect candidates
 		candidates := make([]string, 0, len(payload.Entries))
+		// Track unique incoming candidates across all sources (before comparing to existing file)
+		incomingSet := make(map[string]struct{})
 		for _, e := range payload.Entries {
 			e = strings.ToLower(strings.TrimSpace(e))
 			if e == "" || strings.HasPrefix(e, "#") {
 				continue
 			}
 			candidates = append(candidates, e)
+			incomingSet[e] = struct{}{}
 		}
 		// Collect URLs to fetch (deduplicated)
 		urlSet := make(map[string]struct{})
@@ -724,6 +727,7 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 						}
 						if len(candidates) < maxPerFetchEntries {
 							candidates = append(candidates, v)
+							incomingSet[v] = struct{}{}
 						} else {
 							totalCandidateLimitTriggered = true
 							break
@@ -753,6 +757,7 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 					}
 					if len(candidates) < maxPerFetchEntries {
 						candidates = append(candidates, line)
+						incomingSet[line] = struct{}{}
 					} else {
 						totalCandidateLimitTriggered = true
 						break
@@ -779,6 +784,7 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		existingBefore := len(existingSet)
 
 		// Filter new unique entries
 		unique := make([]string, 0, len(candidates))
@@ -852,6 +858,9 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 
 		appended := len(unique)
 		skipped := len(candidates) - len(unique)
+		incomingTotal := len(candidates)
+		incomingUnique := len(incomingSet)
+		existingAfter := len(existingSet)
 		if appended > 0 {
 			metrics.BlocklistAppendsTotal.Add(float64(appended))
 		}
@@ -863,6 +872,12 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 			"skipped_duplicates": skipped,
 			"added":              added,
 			"reloaded":           reloaded,
+			"meta": map[string]any{
+				"incoming_total":         incomingTotal,
+				"incoming_unique":        incomingUnique,
+				"existing_unique_before": existingBefore,
+				"existing_unique_after":  existingAfter,
+			},
 		})
 	default:
 		respondMethodNotAllowed(w, http.MethodGet, http.MethodPost)
