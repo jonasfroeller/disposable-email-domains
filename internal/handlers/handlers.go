@@ -183,14 +183,14 @@ func (a *API) Index(w http.ResponseWriter, r *http.Request) {
 		{Method: "GET", Path: "/blocklist", Desc: "List blocklist (use ?summary=true or paginate ?offset=&limit=)", SampleURL: "/blocklist?summary=true", RespType: fmt.Sprintf("%T", map[string]any{}), ContentType: "application/json"},
 		{Method: "POST", Path: "/blocklist", Desc: "Extend blocklist (entries/url(s))", SampleURL: "/blocklist", RespType: fmt.Sprintf("%T", map[string]any{}), ContentType: "application/json", BodyTemplate: `{"entries":["foo.com","bar.io"]}`, NeedsToken: true},
 		{Method: "GET", Path: "/check", Desc: "Check via ?q=", SampleURL: "/check?q=test@example.com", RespType: resultType, ContentType: "application/json"},
-		{Method: "GET", Path: "/check/emails/{email}", Desc: "Check email", SampleURL: "/check/emails/test@example.com", RespType: resultType, ContentType: "application/json"},
+		{Method: "GET", Path: "/check/emails/{email}", Desc: "Check email", SampleURL: "/check/emails/test%40example.com", RespType: resultType, ContentType: "application/json"},
 		{Method: "GET", Path: "/check/domains/{domain}", Desc: "Check domain", SampleURL: "/check/domains/example.com", RespType: resultType, ContentType: "application/json"},
 		{Method: "POST", Path: "/check/emails", Desc: "Batch emails (JSON or text)", SampleURL: "/check/emails", RespType: "[]" + resultType, ContentType: "application/json", BodyTemplate: `{"items":["a@b.com","c@d.com"]}`},
 		{Method: "POST", Path: "/check/domains", Desc: "Batch domains (JSON or text)", SampleURL: "/check/domains", RespType: "[]" + resultType, ContentType: "application/json", BodyTemplate: `{"items":["example.com","a.b.com"]}`},
 		{Method: "GET", Path: "/validate", Desc: "Validate lists", SampleURL: "/validate", RespType: reportType, ContentType: "application/json"},
 		{Method: "POST", Path: "/reload", Desc: "Full reload", SampleURL: "/reload", RespType: fmt.Sprintf("%T", map[string]any{}), ContentType: "application/json", NeedsToken: true},
 		{Method: "GET", Path: "/report", Desc: "Validate report (HTML)", SampleURL: "/report", RespType: "text/html", ContentType: "text/html"},
-		{Method: "GET", Path: "/report/emails/{email}", Desc: "Check report (HTML)", SampleURL: "/report/emails/test@example.com", RespType: "text/html", ContentType: "text/html"},
+		{Method: "GET", Path: "/report/emails/{email}", Desc: "Check report (HTML)", SampleURL: "/report/emails/test%40example.com", RespType: "text/html", ContentType: "text/html"},
 		{Method: "GET", Path: "/report/domains/{domain}", Desc: "Check report (HTML)", SampleURL: "/report/domains/example.com", RespType: "text/html", ContentType: "text/html"},
 		{Method: "GET", Path: "/allowlist.conf", Desc: "Download allowlist", SampleURL: "/allowlist.conf", RespType: "text/plain", ContentType: "text/plain"},
 		{Method: "GET", Path: "/blocklist.conf", Desc: "Download blocklist", SampleURL: "/blocklist.conf", RespType: "text/plain", ContentType: "text/plain"},
@@ -287,14 +287,14 @@ details[open] .arrow{transform:rotate(45deg)}
 		<a class="row" href="/blocklist" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/blocklist</span><span class="desc">List blocklist (JSON)</span></a>
 		<div class="row"><span class="method post">POST</span><span class="path">/blocklist</span><span class="desc">Extend blocklist (JSON)</span></div>
 		<a class="row" href="/check?q=test@example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/check</span><span class="desc">JSON check via ?q=</span></a>
-		<a class="row" href="/check/emails/test@example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/check/emails/{email}</span><span class="desc">Check email (JSON)</span></a>
+		<a class="row" href="/check/emails/test%40example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/check/emails/{email}</span><span class="desc">Check email (JSON)</span></a>
 		<a class="row" href="/check/domains/example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/check/domains/{domain}</span><span class="desc">Check domain (JSON)</span></a>
 		<div class="row"><span class="method post">POST</span><span class="path">/check/emails</span><span class="desc">Batch check emails (JSON array or text/plain)</span></div>
 		<div class="row"><span class="method post">POST</span><span class="path">/check/domains</span><span class="desc">Batch check domains (JSON array or text/plain)</span></div>
 		<a class="row" href="/validate" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/validate</span><span class="desc">Validate lists (JSON)</span></a>
 		<div class="row"><span class="method post">POST</span><span class="path">/reload</span><span class="desc">Full reload (optional)</span></div>
 		<a class="row" href="/report" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/report</span><span class="desc">Validate report (HTML)</span></a>
-		<a class="row" href="/report/emails/test@example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/report/emails/{email}</span><span class="desc">Check report for email (HTML)</span></a>
+		<a class="row" href="/report/emails/test%40example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/report/emails/{email}</span><span class="desc">Check report for email (HTML)</span></a>
 		<a class="row" href="/report/domains/example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/report/domains/{domain}</span><span class="desc">Check report for domain (HTML)</span></a>
 		<a class="row" href="/allowlist.conf" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/allowlist.conf</span><span class="desc">Download allowlist</span></a>
 		<a class="row" href="/blocklist.conf" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/blocklist.conf</span><span class="desc">Download blocklist</span></a>
@@ -402,7 +402,8 @@ details[open] .arrow{transform:rotate(45deg)}
 			const result = document.createElement('div'); result.className='result'; result.style.display='none'; tryDiv.append(result);
 
 			const buildURL = (u) => {
-				if (!/^https?:\/\//i.test(u)) { return '//' + __HOST__ + (u.startsWith('/')?u:'/'+u); }
+				// Prefer relative paths for same-origin calls to avoid host rewriting issues in production.
+				if (!/^https?:\/\//i.test(u)) { return (u.startsWith('/') ? u : '/' + u); }
 				return u;
 			};
 			open.addEventListener('click', (ev)=>{
