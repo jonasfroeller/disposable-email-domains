@@ -102,6 +102,8 @@ func NormalizePath(path string) string {
 		"/check/domains/",
 		"/emails/",
 		"/domains/",
+		"/e/",
+		"/d/",
 		"/report/emails/",
 		"/report/domains/",
 	} {

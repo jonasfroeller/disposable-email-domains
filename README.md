@@ -5,6 +5,7 @@ A small, hardened baseline HTTP service (security & observability enhanced) usin
 Features
 - Lean codebase (std lib + Prometheus metrics only)
 - Endpoints: Health (`/healthz`), Status (`/status`), Readiness (`/readyz`), Blocklist (GET/POST), Check, Validate, Report (HTML), Raw list & PSL downloads, Metrics (`/metrics`)
+- WAF-safe short aliases for checks: `/q` (query), `/e/{email}`, `/d/{domain}`
 - Middleware: structured logging (JSON via slog), panic recovery, security headers, request ID, per-IP token bucket rate limiting (x/time/rate), service version + request duration headers
 - JSON responses with proper Content-Type, nosniff, and no-store
 - Strict JSON request handling (Content-Type, size limit, unknown fields)
@@ -38,6 +39,8 @@ API endpoints
 - GET  /check/domains/{domain}
 - GET  /emails/{email}   — alias (alternative if upstream WAF blocks "/check")
 - GET  /domains/{domain} — alias (alternative if upstream WAF blocks "/check")
+- GET  /e/{email}        — short alias (recommended in production if upstream blocks "/emails")
+- GET  /d/{domain}       — short alias (recommended in production if upstream blocks "/domains")
 - POST /check/emails  — batch check emails (JSON array/object or text/plain newline list)
 - POST /check/domains — batch check domains (JSON array/object or text/plain newline list)
   - Add `?format=ndjson` to stream results as NDJSON for very large batches
@@ -113,8 +116,10 @@ Quick checks
   - curl -s -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"url":"https://example.com/list.txt"}' http://localhost:8080/blocklist | jq
 - Check:
   - curl -s 'http://localhost:8080/check?q=test@example.com' | jq
-  - curl -s http://localhost:8080/check/emails/test@example.com | jq
-  - curl -s http://localhost:8080/check/domains/example.com | jq
+  - curl -s http://localhost:8080/e/test@example.com | jq
+  - curl -s http://localhost:8080/d/example.com | jq
+  - (also available) curl -s http://localhost:8080/check/emails/test@example.com | jq
+  - (also available) curl -s http://localhost:8080/check/domains/example.com | jq
   - Batch (emails) JSON array:
     - curl -s -H 'Content-Type: application/json' -d '["test@example.com","foo@bar.com"]' http://localhost:8080/check/emails | jq
   - Batch (emails) text/plain:
@@ -228,7 +233,7 @@ Environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | 8080 | Listen port (prefixed with colon automatically) |
+| `PORT` | 4343 | Listen port (prefixed with colon automatically) |
 | `ADMIN_TOKEN` | (empty) | Single admin token fallback (>=16 chars) |
 | `ADMIN_TOKENS` | (empty) | Comma-separated list of tokens (>=16 chars each) for rotation |
 | `RATE_LIMIT_RPS` | 5.0 | Steady-state requests per second per IP |
@@ -239,7 +244,7 @@ Environment variables:
 | `SAMPLE_CHECK_INTERVAL` | 10m | Interval for sample warming requests |
 | `TRUST_PROXY_HEADERS` | false | Honor X-Forwarded-For / X-Real-IP for client IP extraction |
 | `RATE_LIMIT_BYPASS_DOMAINS` | (empty) | Comma/space separated hostnames that completely bypass rate limiting (e.g. `42websites.com`) |
-| `ENABLE_CHECK_REDIRECTS` | true | Redirect GET /check, /check/emails/*, /check/domains/* to alias paths (/q, /emails/*, /domains/*) to avoid WAF 403s |
+| `ENABLE_CHECK_REDIRECTS` | true | Redirect GET /check, /check/emails/*, /check/domains/* to alias paths (/q, /e/*, /d/*) to avoid WAF 403s |
 | `ENABLE_SAMPLE_WARMING` + `SAMPLE_CHECK_INTERVAL` | (see above) | Periodic POST /check warming job (JSON payload) when enabled |
 
 Access log vs metrics

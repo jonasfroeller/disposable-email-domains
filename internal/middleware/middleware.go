@@ -221,8 +221,8 @@ func VersionHeader(ver string) Middleware {
 //
 // Rules:
 // - GET /check -> /q (preserve query string)
-// - GET /check/emails/... -> /emails/...
-// - GET /check/domains/... -> /domains/...
+// - GET /check/emails/... -> /e/...
+// - GET /check/domains/... -> /d/...
 // Only applies when enabled. Other methods pass through unchanged.
 func RedirectCheckPaths(enabled bool) Middleware {
 	if !enabled {
@@ -248,7 +248,8 @@ func RedirectCheckPaths(enabled bool) Middleware {
 			}
 			// Prefix rewrites
 			if strings.HasPrefix(p, "/check/emails/") {
-				target := "/emails/" + strings.TrimPrefix(p, "/check/emails/")
+				// Prefer the shortest alias to minimize WAF triggers.
+				target := "/e/" + strings.TrimPrefix(p, "/check/emails/")
 				if r.URL.RawQuery != "" {
 					target += "?" + r.URL.RawQuery
 				}
@@ -257,7 +258,7 @@ func RedirectCheckPaths(enabled bool) Middleware {
 				return
 			}
 			if strings.HasPrefix(p, "/check/domains/") {
-				target := "/domains/" + strings.TrimPrefix(p, "/check/domains/")
+				target := "/d/" + strings.TrimPrefix(p, "/check/domains/")
 				if r.URL.RawQuery != "" {
 					target += "?" + r.URL.RawQuery
 				}

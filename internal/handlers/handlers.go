@@ -240,6 +240,8 @@ func (a *API) Index(w http.ResponseWriter, r *http.Request) {
 		{Method: "GET", Path: "/check/domains/{domain}", Desc: "Check domain", SampleURL: "/check/domains/example.com", RespType: resultType, ContentType: "application/json"},
 		{Method: "GET", Path: "/emails/{email}", Desc: "Alias (WAF-safe) for email check", SampleURL: "/emails/test%40example.com", RespType: resultType, ContentType: "application/json"},
 		{Method: "GET", Path: "/domains/{domain}", Desc: "Alias (WAF-safe) for domain check", SampleURL: "/domains/example.com", RespType: resultType, ContentType: "application/json"},
+		{Method: "GET", Path: "/e/{email}", Desc: "Short alias (WAF-safe) for email check", SampleURL: "/e/test%40example.com", RespType: resultType, ContentType: "application/json"},
+		{Method: "GET", Path: "/d/{domain}", Desc: "Short alias (WAF-safe) for domain check", SampleURL: "/d/example.com", RespType: resultType, ContentType: "application/json"},
 		{Method: "POST", Path: "/check/emails", Desc: "Batch emails (JSON or text)", SampleURL: "/check/emails", RespType: "[]" + resultType, ContentType: "application/json", BodyTemplate: `{"items":["a@b.com","c@d.com"]}`},
 		{Method: "POST", Path: "/check/domains", Desc: "Batch domains (JSON or text)", SampleURL: "/check/domains", RespType: "[]" + resultType, ContentType: "application/json", BodyTemplate: `{"items":["example.com","a.b.com"]}`},
 		{Method: "GET", Path: "/validate", Desc: "Validate lists", SampleURL: "/validate", RespType: reportType, ContentType: "application/json"},
@@ -375,6 +377,8 @@ details[open] .arrow{transform:rotate(45deg)}
 		<a class="row" href="/check/domains/example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/check/domains/{domain}</span><span class="desc">Check domain (JSON)</span></a>
 		<a class="row" href="/emails/test%40example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/emails/{email}</span><span class="desc">Alias (WAF-safe) for email check (JSON)</span></a>
 		<a class="row" href="/domains/example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/domains/{domain}</span><span class="desc">Alias (WAF-safe) for domain check (JSON)</span></a>
+		<a class="row" href="/e/test%40example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/e/{email}</span><span class="desc">Short alias (WAF-safe) for email check (JSON)</span></a>
+		<a class="row" href="/d/example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/d/{domain}</span><span class="desc">Short alias (WAF-safe) for domain check (JSON)</span></a>
 		<div class="row"><span class="method post">POST</span><span class="path">/check/emails</span><span class="desc">Batch check emails (JSON array or text/plain)</span></div>
 		<div class="row"><span class="method post">POST</span><span class="path">/check/domains</span><span class="desc">Batch check domains (JSON array or text/plain)</span></div>
 		<a class="row" href="/validate" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/validate</span><span class="desc">Validate lists (JSON)</span></a>
@@ -1417,12 +1421,16 @@ func (a *API) CheckEmailAliasPath(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusServiceUnavailable, "checker not initialized")
 		return
 	}
-	prefix := "/emails/"
-	if !strings.HasPrefix(r.URL.Path, prefix) {
+	var raw string
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/emails/"):
+		raw = strings.TrimPrefix(r.URL.Path, "/emails/")
+	case strings.HasPrefix(r.URL.Path, "/e/"):
+		raw = strings.TrimPrefix(r.URL.Path, "/e/")
+	default:
 		respondError(w, http.StatusNotFound, "not found")
 		return
 	}
-	raw := strings.TrimPrefix(r.URL.Path, prefix)
 	if raw == "" || strings.Contains(raw, "/") {
 		respondError(w, http.StatusNotFound, "not found")
 		return
@@ -1447,12 +1455,16 @@ func (a *API) CheckDomainAliasPath(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusServiceUnavailable, "checker not initialized")
 		return
 	}
-	prefix := "/domains/"
-	if !strings.HasPrefix(r.URL.Path, prefix) {
+	var raw string
+	switch {
+	case strings.HasPrefix(r.URL.Path, "/domains/"):
+		raw = strings.TrimPrefix(r.URL.Path, "/domains/")
+	case strings.HasPrefix(r.URL.Path, "/d/"):
+		raw = strings.TrimPrefix(r.URL.Path, "/d/")
+	default:
 		respondError(w, http.StatusNotFound, "not found")
 		return
 	}
-	raw := strings.TrimPrefix(r.URL.Path, prefix)
 	if raw == "" || strings.Contains(raw, "/") {
 		respondError(w, http.StatusNotFound, "not found")
 		return

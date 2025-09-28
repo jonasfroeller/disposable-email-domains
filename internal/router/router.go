@@ -53,6 +53,9 @@ func New(store storageAPI, logger *log.Logger, checker *domain.Checker, cfg conf
 	// Aliases for path-based checks without the "/check" prefix (helps bypass strict WAFs)
 	mux.HandleFunc("/emails/", api.CheckEmailAliasPath)
 	mux.HandleFunc("/domains/", api.CheckDomainAliasPath)
+	// Short aliases to avoid keywords like "emails"/"domains" being blocked upstream
+	mux.HandleFunc("/e/", api.CheckEmailAliasPath)
+	mux.HandleFunc("/d/", api.CheckDomainAliasPath)
 
 	// Validation + reports
 	mux.HandleFunc("/validate", api.ValidateHandler)
