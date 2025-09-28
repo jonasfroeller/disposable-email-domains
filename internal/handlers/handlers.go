@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -786,29 +785,6 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func readBlocklistEntries(path string) ([]map[string]any, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	res := make([]map[string]any, 0, 1024)
-	s := bufio.NewScanner(f)
-	lineNo := 0
-	for s.Scan() {
-		lineNo++
-		line := strings.TrimSpace(s.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		res = append(res, map[string]any{"id": lineNo, "domain": strings.ToLower(line)})
-	}
-	if err := s.Err(); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 // readBlocklistEntriesPaged streams the file and returns up to 'limit' entries after skipping 'offset' entries.
 // It also returns the total number of entries in the file (excluding comments/blank lines). If limit is 0, no
 // entries are returned but total is still computed. IDs correspond to the line number in the file to remain
@@ -1214,14 +1190,6 @@ func respondError(w http.ResponseWriter, status int, msg string) {
 func respondMethodNotAllowed(w http.ResponseWriter, allowed ...string) {
 	w.Header().Set("Allow", strings.Join(allowed, ", "))
 	respondError(w, http.StatusMethodNotAllowed, "method not allowed")
-}
-
-func generateID() (string, error) {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b[:]), nil
 }
 
 // Path-based check: /check/emails/{email}

@@ -73,7 +73,10 @@ func New(store storageAPI, logger *log.Logger, checker *domain.Checker, cfg conf
 				return
 			}
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
-			w.Write([]byte(`{"status":"ok"}`))
+			if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {
+				http.Error(w, "write error", http.StatusInternalServerError)
+				return
+			}
 		})
 	}
 

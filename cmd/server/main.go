@@ -128,7 +128,7 @@ func main() {
 
 	go func() {
 		addr := srv.Addr
-		url := "http://127.0.0.1" + addr
+		var url string
 		if strings.HasPrefix(addr, ":") { // ":8080" style
 			url = "http://127.0.0.1" + addr
 		} else if strings.HasPrefix(addr, "0.0.0.0:") {

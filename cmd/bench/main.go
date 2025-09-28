@@ -182,7 +182,10 @@ func main() {
 				continue
 			}
 			// drain body to allow reuse; small bodies expected
-			io.Copy(io.Discard, resp.Body)
+			if _, copyErr := io.Copy(io.Discard, resp.Body); copyErr != nil {
+				// network/body read errors here aren't fatal for the run; count as net error bucket
+				classifyNetErr(copyErr, &netErrCt, &timeoutCt, &refusedCt, &otherNetCt)
+			}
 			_ = resp.Body.Close()
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				atomic.AddInt64(&successCount, 1)
