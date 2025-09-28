@@ -217,6 +217,59 @@ func VersionHeader(ver string) Middleware {
 	}
 }
 
+// Redirects GET requests from original "/check" paths to WAF-safe aliases.
+//
+// Rules:
+// - GET /check -> /q (preserve query string)
+// - GET /check/emails/... -> /emails/...
+// - GET /check/domains/... -> /domains/...
+// Only applies when enabled. Other methods pass through unchanged.
+func RedirectCheckPaths(enabled bool) Middleware {
+	if !enabled {
+		return func(next http.Handler) http.Handler { return next }
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet && r.Method != http.MethodHead {
+				next.ServeHTTP(w, r)
+				return
+			}
+			p := r.URL.Path
+			// Exact /check -> /q
+			if p == "/check" {
+				target := "/q"
+				if r.URL.RawQuery != "" {
+					target = target + "?" + r.URL.RawQuery
+				}
+				// 307 preserves method; suitable for GET/HEAD
+				w.Header().Set("Location", target)
+				w.WriteHeader(http.StatusTemporaryRedirect)
+				return
+			}
+			// Prefix rewrites
+			if strings.HasPrefix(p, "/check/emails/") {
+				target := "/emails/" + strings.TrimPrefix(p, "/check/emails/")
+				if r.URL.RawQuery != "" {
+					target += "?" + r.URL.RawQuery
+				}
+				w.Header().Set("Location", target)
+				w.WriteHeader(http.StatusTemporaryRedirect)
+				return
+			}
+			if strings.HasPrefix(p, "/check/domains/") {
+				target := "/domains/" + strings.TrimPrefix(p, "/check/domains/")
+				if r.URL.RawQuery != "" {
+					target += "?" + r.URL.RawQuery
+				}
+				w.Header().Set("Location", target)
+				w.WriteHeader(http.StatusTemporaryRedirect)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // Whether it should honor X-Forwarded-For / X-Real-IP headers.
 // Set once during startup via SetTrustProxyHeaders and read concurrently.
 var trustProxy atomic.Bool

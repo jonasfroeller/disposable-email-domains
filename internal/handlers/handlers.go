@@ -235,8 +235,11 @@ func (a *API) Index(w http.ResponseWriter, r *http.Request) {
 		{Method: "GET", Path: "/blocklist", Desc: "List blocklist (use ?summary=true or paginate ?offset=&limit=)", SampleURL: "/blocklist?summary=true", RespType: fmt.Sprintf("%T", map[string]any{}), ContentType: "application/json"},
 		{Method: "POST", Path: "/blocklist", Desc: "Extend blocklist (entries/url(s))", SampleURL: "/blocklist", RespType: fmt.Sprintf("%T", map[string]any{}), ContentType: "application/json", BodyTemplate: `{"entries":["foo.com","bar.io"]}`, NeedsToken: true},
 		{Method: "GET", Path: "/check", Desc: "Check via ?q=", SampleURL: "/check?q=test@example.com", RespType: resultType, ContentType: "application/json"},
+		{Method: "GET", Path: "/q", Desc: "Alias for /check?q= (WAF-safe)", SampleURL: "/q?q=test@example.com", RespType: resultType, ContentType: "application/json"},
 		{Method: "GET", Path: "/check/emails/{email}", Desc: "Check email", SampleURL: "/check/emails/test%40example.com", RespType: resultType, ContentType: "application/json"},
 		{Method: "GET", Path: "/check/domains/{domain}", Desc: "Check domain", SampleURL: "/check/domains/example.com", RespType: resultType, ContentType: "application/json"},
+		{Method: "GET", Path: "/emails/{email}", Desc: "Alias (WAF-safe) for email check", SampleURL: "/emails/test%40example.com", RespType: resultType, ContentType: "application/json"},
+		{Method: "GET", Path: "/domains/{domain}", Desc: "Alias (WAF-safe) for domain check", SampleURL: "/domains/example.com", RespType: resultType, ContentType: "application/json"},
 		{Method: "POST", Path: "/check/emails", Desc: "Batch emails (JSON or text)", SampleURL: "/check/emails", RespType: "[]" + resultType, ContentType: "application/json", BodyTemplate: `{"items":["a@b.com","c@d.com"]}`},
 		{Method: "POST", Path: "/check/domains", Desc: "Batch domains (JSON or text)", SampleURL: "/check/domains", RespType: "[]" + resultType, ContentType: "application/json", BodyTemplate: `{"items":["example.com","a.b.com"]}`},
 		{Method: "GET", Path: "/validate", Desc: "Validate lists", SampleURL: "/validate", RespType: reportType, ContentType: "application/json"},
@@ -342,8 +345,11 @@ details[open] .arrow{transform:rotate(45deg)}
 		<a class="row" href="/blocklist" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/blocklist</span><span class="desc">List blocklist (JSON)</span></a>
 		<div class="row"><span class="method post">POST</span><span class="path">/blocklist</span><span class="desc">Extend blocklist (JSON)</span></div>
 		<a class="row" href="/check?q=test@example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/check</span><span class="desc">JSON check via ?q=</span></a>
+		<a class="row" href="/q?q=test@example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/q</span><span class="desc">Alias for /check?q= (WAF-safe)</span></a>
 		<a class="row" href="/check/emails/test%40example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/check/emails/{email}</span><span class="desc">Check email (JSON)</span></a>
 		<a class="row" href="/check/domains/example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/check/domains/{domain}</span><span class="desc">Check domain (JSON)</span></a>
+		<a class="row" href="/emails/test%40example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/emails/{email}</span><span class="desc">Alias (WAF-safe) for email check (JSON)</span></a>
+		<a class="row" href="/domains/example.com" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/domains/{domain}</span><span class="desc">Alias (WAF-safe) for domain check (JSON)</span></a>
 		<div class="row"><span class="method post">POST</span><span class="path">/check/emails</span><span class="desc">Batch check emails (JSON array or text/plain)</span></div>
 		<div class="row"><span class="method post">POST</span><span class="path">/check/domains</span><span class="desc">Batch check domains (JSON array or text/plain)</span></div>
 		<a class="row" href="/validate" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/validate</span><span class="desc">Validate lists (JSON)</span></a>
@@ -1339,6 +1345,66 @@ func (a *API) CheckDomainPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	prefix := "/check/domains/"
+	if !strings.HasPrefix(r.URL.Path, prefix) {
+		respondError(w, http.StatusNotFound, "not found")
+		return
+	}
+	raw := strings.TrimPrefix(r.URL.Path, prefix)
+	if raw == "" || strings.Contains(raw, "/") {
+		respondError(w, http.StatusNotFound, "not found")
+		return
+	}
+	val, err := url.PathUnescape(raw)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid path encoding")
+		return
+	}
+	res := a.Check.Check(val)
+	respondJSON(w, http.StatusOK, res)
+}
+
+// Alias Path-based check: /emails/{email}
+// Mirrors CheckEmailPath but avoids the "/check" prefix to bypass certain upstream WAF rules.
+func (a *API) CheckEmailAliasPath(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		respondMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if a.Check == nil {
+		respondError(w, http.StatusServiceUnavailable, "checker not initialized")
+		return
+	}
+	prefix := "/emails/"
+	if !strings.HasPrefix(r.URL.Path, prefix) {
+		respondError(w, http.StatusNotFound, "not found")
+		return
+	}
+	raw := strings.TrimPrefix(r.URL.Path, prefix)
+	if raw == "" || strings.Contains(raw, "/") {
+		respondError(w, http.StatusNotFound, "not found")
+		return
+	}
+	val, err := url.PathUnescape(raw)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid path encoding")
+		return
+	}
+	res := a.Check.Check(val)
+	respondJSON(w, http.StatusOK, res)
+}
+
+// Alias Path-based check: /domains/{domain}
+// Mirrors CheckDomainPath but avoids the "/check" prefix to bypass certain upstream WAF rules.
+func (a *API) CheckDomainAliasPath(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		respondMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if a.Check == nil {
+		respondError(w, http.StatusServiceUnavailable, "checker not initialized")
+		return
+	}
+	prefix := "/domains/"
 	if !strings.HasPrefix(r.URL.Path, prefix) {
 		respondError(w, http.StatusNotFound, "not found")
 		return

@@ -100,6 +100,8 @@ func NormalizePath(path string) string {
 	for _, pref := range []string{
 		"/check/emails/",
 		"/check/domains/",
+		"/emails/",
+		"/domains/",
 		"/report/emails/",
 		"/report/domains/",
 	} {

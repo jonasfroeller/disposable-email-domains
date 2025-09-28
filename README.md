@@ -32,8 +32,12 @@ API endpoints
 - GET  /blocklist   — JSON { entries: [...], count: N }
 - POST /blocklist   — extend list via { "entries": ["foo.com"...] }, { "url": "https://..." }, or { "urls": [..] } (admin token)
 - GET  /check       — query via /check?q=<email-or-domain>
+- Auto-redirects (307) GET /check* to WAF-safe aliases unless disabled
+- GET  /q           — alias for /check?q= (alternative if upstream WAF blocks "/check")
 - GET  /check/emails/{email}
 - GET  /check/domains/{domain}
+- GET  /emails/{email}   — alias (alternative if upstream WAF blocks "/check")
+- GET  /domains/{domain} — alias (alternative if upstream WAF blocks "/check")
 - POST /check/emails  — batch check emails (JSON array/object or text/plain newline list)
 - POST /check/domains — batch check domains (JSON array/object or text/plain newline list)
   - Add `?format=ndjson` to stream results as NDJSON for very large batches
@@ -235,6 +239,7 @@ Environment variables:
 | `SAMPLE_CHECK_INTERVAL` | 10m | Interval for sample warming requests |
 | `TRUST_PROXY_HEADERS` | false | Honor X-Forwarded-For / X-Real-IP for client IP extraction |
 | `RATE_LIMIT_BYPASS_DOMAINS` | (empty) | Comma/space separated hostnames that completely bypass rate limiting (e.g. `42websites.com`) |
+| `ENABLE_CHECK_REDIRECTS` | true | Redirect GET /check, /check/emails/*, /check/domains/* to alias paths (/q, /emails/*, /domains/*) to avoid WAF 403s |
 | `ENABLE_SAMPLE_WARMING` + `SAMPLE_CHECK_INTERVAL` | (see above) | Periodic POST /check warming job (JSON payload) when enabled |
 
 Access log vs metrics

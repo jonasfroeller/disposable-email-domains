@@ -22,17 +22,20 @@ type Config struct {
 
 	BatchMaxItems       int // cap for non-streaming batch endpoints
 	BatchStreamMaxItems int // cap for streaming (NDJSON) endpoints
+
+	EnableCheckRedirects bool // redirect GET /check* to alias paths
 }
 
 func Load(logger *log.Logger) Config {
 	c := Config{
-		RateLimitRPS:        5.0,
-		RateLimitBurst:      20,
-		RateLimiterTTL:      10 * time.Minute,
-		PSLRefreshInterval:  24 * time.Hour,
-		SampleCheckInterval: 10 * time.Minute,
-		BatchMaxItems:       200_000,
-		BatchStreamMaxItems: 1_000_000,
+		RateLimitRPS:         5.0,
+		RateLimitBurst:       20,
+		RateLimiterTTL:       10 * time.Minute,
+		PSLRefreshInterval:   24 * time.Hour,
+		SampleCheckInterval:  10 * time.Minute,
+		BatchMaxItems:        200_000,
+		BatchStreamMaxItems:  1_000_000,
+		EnableCheckRedirects: true,
 	}
 	if v := os.Getenv("RATE_LIMIT_RPS"); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
@@ -119,6 +122,10 @@ func Load(logger *log.Logger) Config {
 		} else if err != nil {
 			logger.Printf("config: invalid BATCH_STREAM_MAX_ITEMS=%q: %v", v, err)
 		}
+	}
+	if v := os.Getenv("ENABLE_CHECK_REDIRECTS"); v != "" {
+		vl := strings.ToLower(v)
+		c.EnableCheckRedirects = vl == "1" || vl == "true" || vl == "yes" || vl == "on"
 	}
 	return c
 }

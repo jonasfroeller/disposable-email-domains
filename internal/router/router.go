@@ -43,11 +43,16 @@ func New(store storageAPI, logger *log.Logger, checker *domain.Checker, cfg conf
 
 	// JSON check
 	mux.HandleFunc("/check", api.CheckHandler)
+	// Aliases to avoid potential upstream WAF blocking of "/check" prefix
+	mux.HandleFunc("/q", api.CheckHandler) // GET /q?q=...
 	// Batch JSON checks
 	mux.HandleFunc("/check/emails", api.CheckEmailsBatch)   // POST array or text
 	mux.HandleFunc("/check/domains", api.CheckDomainsBatch) // POST array or text
 	mux.HandleFunc("/check/emails/", api.CheckEmailPath)
 	mux.HandleFunc("/check/domains/", api.CheckDomainPath)
+	// Aliases for path-based checks without the "/check" prefix (helps bypass strict WAFs)
+	mux.HandleFunc("/emails/", api.CheckEmailAliasPath)
+	mux.HandleFunc("/domains/", api.CheckDomainAliasPath)
 
 	// Validation + reports
 	mux.HandleFunc("/validate", api.ValidateHandler)
@@ -92,6 +97,7 @@ func New(store storageAPI, logger *log.Logger, checker *domain.Checker, cfg conf
 		middleware.VersionHeader(version),
 		middleware.Recover(logger),
 		middleware.RequestIDMiddleware(),
+		middleware.RedirectCheckPaths(cfg.EnableCheckRedirects),
 		middleware.RateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst, cfg.RateLimiterTTL, logger, cfg.RateLimitBypassDomains),
 		middleware.AdminGuardMulti(adminTokenList, logger),
 		middleware.Logging(logger),
