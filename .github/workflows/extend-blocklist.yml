@@ -1,0 +1,103 @@
+name: Extend blocklist (daily)
+
+on:
+  schedule:
+    # Every 24 hours at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: extend-blocklist
+  cancel-in-progress: false
+
+jobs:
+  extend:
+    name: Run server, extend, and commit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          check-latest: true
+          cache: true
+
+      - name: Build server
+        run: |
+          set -euo pipefail
+          go build -ldflags "-X main.version=${GITHUB_SHA}" -o server ./cmd/server
+
+      - name: Generate admin token
+        run: |
+          set -euo pipefail
+          echo "ADMIN_TOKEN=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+
+      - name: Start server in background
+        run: |
+          set -euo pipefail
+          PORT=8080 ADMIN_TOKENS=${ADMIN_TOKEN} ENABLE_SAMPLE_WARMING=false TRUST_PROXY_HEADERS=false \
+            nohup ./server > server.log 2>&1 &
+          echo "Server started; waiting for health..."
+          for i in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:8080/healthz" >/dev/null; then
+              echo "Server healthy"; break; fi; sleep 1; done
+          curl -fsS "http://127.0.0.1:8080/healthz" || { echo 'Server failed to become healthy'; tail -n 200 server.log || true; exit 1; }
+
+      - name: Extend blocklist from curated sources
+        id: extend
+        run: |
+          set -euo pipefail
+          urls_json='[
+            "https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/refs/heads/main/disposable_email_blocklist.conf",
+            "https://disposable.github.io/disposable-email-domains/domains.txt",
+            "https://raw.githubusercontent.com/7c/fakefilter/refs/heads/main/txt/data.txt",
+            "https://raw.githubusercontent.com/FGRibreau/mailchecker/refs/heads/master/list.txt",
+            "https://raw.githubusercontent.com/amieiro/disposable-email-domains/refs/heads/master/denyDomains.txt",
+            "https://gist.githubusercontent.com/ammarshah/f5c2624d767f91a7cbdc4e54db8dd0bf/raw/660fd949eba09c0b86574d9d3aa0f2137161fc7c/all_email_provider_domains.txt",
+            "https://github.com/gblmarquez/disposable-email-domains/raw/refs/heads/main/disposable_email_domains_blocklist.txt",
+            "https://raw.githubusercontent.com/unkn0w/disposable-email-domain-list/refs/heads/main/domains.txt",
+            "https://raw.githubusercontent.com/ivolo/disposable-email-domains/refs/heads/master/wildcard.json",
+            "https://github.com/IntegerAlex/disposable-email-detector/raw/refs/heads/main/index.json"
+          ]'
+
+          echo "Posting to local /blocklist"
+          curl -sS -f --retry 3 --retry-delay 5 --retry-all-errors \
+            -H "Content-Type: application/json" \
+            -H "X-Admin-Token: ${ADMIN_TOKEN}" \
+            -X POST \
+            --data "{\"urls\":${urls_json}}" \
+            "http://127.0.0.1:8080/blocklist" | tee resp.json
+
+          appended=$(jq -r '.appended // 0' resp.json)
+          skipped=$(jq -r '.skipped_duplicates // 0' resp.json)
+          echo "appended=${appended}" >> $GITHUB_OUTPUT
+          echo "skipped=${skipped}" >> $GITHUB_OUTPUT
+          echo "Result: Appended: ${appended}, Skipped duplicates: ${skipped}"
+
+      - name: Commit updated lists (if changed)
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Stage list files only
+          git add blocklist.conf public_suffix_list.dat || true
+          if git diff --cached --quiet -- blocklist.conf public_suffix_list.dat; then
+            echo "No changes in lists to commit."; exit 0; fi
+          git commit -m "Appended: ${APPENDED:-${{ steps.extend.outputs.appended }}}, Skipped duplicates: ${SKIPPED:-${{ steps.extend.outputs.skipped }}}"
+          git push
+
+      - name: Stop server (best-effort)
+        if: always()
+        run: |
+          pkill -f "./server" || true
+          sleep 1
+          tail -n 200 server.log || true

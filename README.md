@@ -206,6 +206,19 @@ Similar
 
 https://www.usercheck.com/guides/best-github-lists-for-disposable-email-domains
 
+## Automation: Scheduled blocklist extension
+
+This repo includes a GitHub Actions workflow that, every 24 hours, builds and runs the server locally in the runner, calls `POST /blocklist` with the same curated URL set as the HTML UI "Bulk add from URLs", and commits any changes to `blocklist.conf` with a message of the form:
+
+Appended: N, Skipped duplicates: M
+
+The workflow is at `.github/workflows/extend-blocklist.yml`, runs daily at 00:00 UTC, and supports manual dispatch. No external service URL or secrets are required; the job starts the server on `127.0.0.1:8080` with a temporary admin token.
+
+Notes:
+- `blocklist.conf` and `public_suffix_list.dat` are staged/committed if they change during the run.
+- The workflow uses the exact same sources as the UI snippet (plaintext lists and JSON arrays). Duplicates and already-present domains are skipped server-side.
+- You can adjust the schedule by editing the `cron` expression.
+
 ## Configuration
 Environment variables:
 
