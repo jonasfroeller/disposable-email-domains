@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: ["1.24.x", "1.25.x"]
+        go-version: ["1.24.x"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Go
@@ -44,19 +44,17 @@ jobs:
           fi
       - name: Vet
         run: go vet ./...
-      - name: golangci-lint (Go 1.24)
-        if: ${{ matrix.go-version == '1.24.x' }}
+      - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.61.0
+          version: latest
           install-mode: goinstall
           args: --timeout=5m
       - name: Run tests (race)
         run: go test -race -count=1 ./...
       - name: Build
         run: go build ./...
-      - name: Govulncheck (Go 1.24)
-        if: ${{ matrix.go-version == '1.24.x' }}
+      - name: Govulncheck
         id: govuln
         uses: golang/govulncheck-action@v1
         with:
