@@ -270,9 +270,14 @@ func (a *API) Index(w http.ResponseWriter, r *http.Request) {
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:linear-gradient(180deg,#0b1020, #0d1730 50%, #0b1020);color:var(--text);font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji","Segoe UI Emoji"}
+.app-header{position:fixed;top:0;left:0;right:0;z-index:10;background:#0b1020cc;backdrop-filter:blur(6px);border-bottom:1px solid #1d2947}
+.app-header-inner{max-width:920px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.header-spacer{height:56px}
+.brand{font-size:18px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:10px}
+.brand .host{color:var(--muted);font-weight:500;font-size:13px}
+.gh-link{display:inline-flex;align-items:center;gap:8px;color:#9fb3d9;text-decoration:none}
+.gh-link:hover{color:#cfe1ff}
 .container{max-width:920px;margin:0 auto;padding:32px 16px}
-.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.h1{font-size:22px;font-weight:700;letter-spacing:.3px}
 .small{color:var(--muted);font-size:13px}
 .panel{background:rgba(18,26,46,.8);backdrop-filter:blur(6px);border:1px solid #1d2947;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4)}
 .panel h2{margin:0;padding:14px 16px;border-bottom:1px solid #1d2947;font-size:16px;display:flex;align-items:center;gap:8px}
@@ -310,6 +315,15 @@ details[open] .arrow{transform:rotate(45deg)}
 .btn:link,.btn:visited,.btn:hover,.btn:active{color:#9cc2ff;text-decoration:none}
 .btn:focus{outline:2px solid #1f2c4a;outline-offset:2px}
 .result{margin-top:10px;background:#0b1326;border:1px solid #172243;border-radius:10px;color:#d1e9ff;padding:10px;white-space:pre-wrap;max-height:320px;overflow:auto}
+/* Footer */
+.app-footer{background:#0b1020;border-top:1px solid #1d2947}
+.app-footer-inner{max-width:920px;margin:0 auto;padding:10px 16px;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:space-between}
+@media (min-width: 640px){.app-footer-inner{flex-direction:row}}
+.app-footer a{color:#7cc4ff;text-decoration:none}
+.app-footer a:hover{text-decoration:underline}
+.app-footer .who{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+.app-footer .who img{width:22px;height:22px;border-radius:999px}
+.app-footer .legal{display:flex;align-items:center;gap:8px}
 /* Responsive fallback: stack description below on small screens */
 @media (max-width: 720px){
 	.row{grid-template-columns:var(--col-method) 1fr}
@@ -321,11 +335,22 @@ details[open] .arrow{transform:rotate(45deg)}
 </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="h1">Disposable Email Domains API</div>
-      <div class="small">Host: ` + host + `</div>
-    </div>
+	<header id="app-header" class="app-header">
+		<div class="app-header-inner">
+			<div class="brand">
+				<span>Disposable Email Domains API</span>
+				<span class="host" id="hostText" title="Detected host"></span>
+			</div>
+			<a class="gh-link" href="https://github.com/jonasfroeller/disposable-email-domains" target="_blank" rel="noopener" aria-label="View source on GitHub">
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<rect width="24" height="24" fill="none" />
+					<path fill="currentColor" d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5c.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34c-.46-1.16-1.11-1.47-1.11-1.47c-.91-.62.07-.6.07-.6c1 .07 1.53 1.03 1.53 1.03c.87 1.52 2.34 1.07 2.91.83c.09-.65.35-1.09.63-1.34c-2.22-.25-4.55-1.11-4.55-4.92c0-1.11.38-2 1.03-2.71c-.1-.25-.45-1.29.1-2.64c0 0 .84-.27 2.75 1.02c.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02c.55 1.35.2 2.39.1 2.64c.65.71 1.03 1.6 1.03 2.71c0 3.82-2.34 4.66-4.57 4.91c.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/>
+				</svg>
+			</a>
+		</div>
+	</header>
+	<div class="header-spacer"></div>
+	<div class="container">
 
     <div class="panel">
       <h2>
@@ -406,17 +431,23 @@ details[open] .arrow{transform:rotate(45deg)}
 	// Endpoint metadata injected from server
 	const __ENDPOINTS__ = ` + string(epJSON) + `;
 	const __HOST__ = ` + strconv.Quote(host) + `;
-			(function mountViewSelector(){
-				const sel = document.getElementById('viewSelect');
-				const endpoints = document.getElementById('endpointsView');
-				const explorer = document.getElementById('explorerView');
-				if (!sel || !endpoints || !explorer) return;
-				sel.addEventListener('change', () => {
-					const v = sel.value;
-					endpoints.style.display = (v === 'endpoints') ? 'block' : 'none';
-					explorer.style.display = (v === 'explorer') ? 'block' : 'none';
-				});
-			})();
+	(function showHost(){
+	  try {
+	    var el = document.getElementById('hostText');
+	    if (el) { el.textContent = 'Host: ' + (window.location.host || __HOST__); }
+	  } catch(e) {}
+	})();
+	(function mountViewSelector(){
+		const sel = document.getElementById('viewSelect');
+		const endpoints = document.getElementById('endpointsView');
+		const explorer = document.getElementById('explorerView');
+		if (!sel || !endpoints || !explorer) return;
+		sel.addEventListener('change', () => {
+			const v = sel.value;
+			endpoints.style.display = (v === 'endpoints') ? 'block' : 'none';
+			explorer.style.display = (v === 'explorer') ? 'block' : 'none';
+		});
+	})();
 	(function renderAPIExplorer(){
 		const root = document.getElementById('apiExplorerList');
 		if (!root) return;
@@ -574,7 +605,19 @@ details[open] .arrow{transform:rotate(45deg)}
 			});
     })();
     </script>
-  </div>
+	</div>
+	<footer id="app-footer" class="app-footer">
+		<div class="app-footer-inner">
+			<div class="who">
+				<img src="https://avatars.githubusercontent.com/u/121523551?v=4" alt="Jonas Fröller" loading="lazy" />
+				<span>Made by <a href="https://jonasfroeller.is-a.dev" target="_blank" rel="noopener">Jonas Fröller</a></span>
+			</div>
+			<div class="legal">
+				<img src="https://merginit.com/favicon.png" alt="Imprint" width="22" height="22" loading="lazy" />
+				<a href="https://merginit.com/legal/imprint" target="_blank" rel="noopener">Imprint</a>
+			</div>
+		</div>
+	</footer>
 </body>
 </html>`
 	_, _ = io.WriteString(w, html)
