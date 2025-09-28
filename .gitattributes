@@ -1,0 +1,10 @@
+# Normalize line endings in CI and across clones
+# Keep source files with LF so gofmt is stable on Linux runners
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.conf text eol=lf
+*.dat text eol=lf
+README.md text eol=lf
