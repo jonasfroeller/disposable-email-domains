@@ -37,6 +37,8 @@ func New(store storageAPI, logger *log.Logger, checker *domain.Checker, cfg conf
 	mux.HandleFunc("/livez", api.Live)
 	mux.HandleFunc("/status", api.Status)
 	mux.HandleFunc("/readyz", api.Ready)
+	mux.HandleFunc("/favicon.ico", api.Favicon)
+	mux.HandleFunc("/favicon.png", api.Favicon)
 	mux.Handle("/metrics", metrics.Handler())
 
 	// JSON check

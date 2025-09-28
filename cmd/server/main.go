@@ -113,7 +113,7 @@ func main() {
 	mux := router.New(store, logger, checker, cfg, refresher, version)
 
 	srv := &http.Server{
-		Addr:              ":8080",
+		Addr:              ":4343",
 		Handler:           mux,
 		ReadTimeout:       5 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,

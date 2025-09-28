@@ -97,6 +97,20 @@ func (a *API) Live(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]any{"alive": true})
 }
 
+func (a *API) Favicon(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		respondMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if r.URL.Path != "/favicon.ico" && r.URL.Path != "/favicon.png" {
+		http.NotFound(w, r)
+		return
+	}
+	const avatar = "https://avatars.githubusercontent.com/u/121523551?v=4"
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	http.Redirect(w, r, avatar, http.StatusFound)
+}
+
 // Returns quick diagnostic counts & last update timestamp.
 func (a *API) Status(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -140,7 +154,7 @@ func (a *API) Index(w http.ResponseWriter, r *http.Request) {
 	nonceBytes := make([]byte, 16)
 	_, _ = rand.Read(nonceBytes)
 	nonce := base64.StdEncoding.EncodeToString(nonceBytes)
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; script-src 'nonce-"+nonce+"'; frame-ancestors 'none'; base-uri 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' https: data: avatars.githubusercontent.com; font-src 'self' data:; connect-src 'self' https:; script-src 'nonce-"+nonce+"'; frame-ancestors 'none'; base-uri 'none'")
 
 	host := r.Host
 
@@ -192,6 +206,7 @@ func (a *API) Index(w http.ResponseWriter, r *http.Request) {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>API Index</title>
+<link rel="icon" type="image/png" href="https://avatars.githubusercontent.com/u/121523551?v=4" />
 <style>
 :root{--bg:#0b1020;--panel:#121a2e;--text:#e6eefc;--muted:#9fb3d9;--accent:#7cc4ff;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;--chip:#243250;--col-method:72px;--col-path-min:220px;--col-desc-min:260px;--col-type:220px}
 *{box-sizing:border-box}
@@ -307,16 +322,18 @@ details[open] .arrow{transform:rotate(45deg)}
 	<div class="panel" style="margin-top:16px">
       <h2>Bulk add from URLs</h2>
       <div class="list">
-        <div class="row" style="display:block">
-          <div class="small" style="margin-bottom:8px">Paste one or more URLs (one per line). Each URL should point to a plaintext list where non-empty, non-comment lines are domains.</div>
-          <textarea id="urlsInput" rows="6" style="width:100%;background:#0b1326;border:1px solid #172243;border-radius:10px;color:#d1e9ff;padding:12px;line-height:1.6" placeholder="https://example.com/list1.txt&#10;https://example.com/list2.txt"></textarea>
-		  <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button id="addUrlsBtn" style="background:#132042;border:1px solid #1f2c4a;color:#9cc2ff;border-radius:8px;padding:8px 12px;cursor:pointer">Add to blocklist</button>
-            <label class="small" style="display:flex;align-items:center;gap:6px"><input id="reloadAfter" type="checkbox" checked /> <span>Reload lists after adding</span></label>
-			<input id="adminTokenInput" type="password" placeholder="Admin token" autocomplete="off" style="flex:1;min-width:200px;background:#0b1326;border:1px solid #172243;border-radius:8px;color:#d1e9ff;padding:8px" />
-          </div>
-          <div id="urlsResult" style="display:none;margin-top:10px;width:100%;background:#0b1326;border:1px solid #172243;border-radius:10px;color:#d1e9ff;padding:10px;white-space:pre-wrap"></div>
-        </div>
+		<div class="row" style="display:block">
+			<form id="bulkForm" onsubmit="return false;" novalidate>
+				<div class="small" style="margin-bottom:8px">Paste one or more URLs (one per line). Each URL should point to a plaintext list where non-empty, non-comment lines are domains.</div>
+				<textarea id="urlsInput" rows="6" style="width:100%;background:#0b1326;border:1px solid #172243;border-radius:10px;color:#d1e9ff;padding:12px;line-height:1.6" placeholder="https://example.com/list1.txt&#10;https://example.com/list2.txt"></textarea>
+				<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+					<button id="addUrlsBtn" type="button" style="background:#132042;border:1px solid #1f2c4a;color:#9cc2ff;border-radius:8px;padding:8px 12px;cursor:pointer">Add to blocklist</button>
+					<label class="small" style="display:flex;align-items:center;gap:6px"><input id="reloadAfter" type="checkbox" checked /> <span>Reload lists after adding</span></label>
+					<input id="adminTokenInput" type="password" placeholder="Admin token" autocomplete="off" style="flex:1;min-width:200px;background:#0b1326;border:1px solid #172243;border-radius:8px;color:#d1e9ff;padding:8px" />
+				</div>
+				<div id="urlsResult" style="display:none;margin-top:10px;width:100%;background:#0b1326;border:1px solid #172243;border-radius:10px;color:#d1e9ff;padding:10px;white-space:pre-wrap"></div>
+			</form>
+		</div>
       </div>
     </div>
 

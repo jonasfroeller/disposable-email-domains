@@ -57,7 +57,7 @@ Prerequisites: Go 1.21+
 
 - Build: go build ./...
 - Run:   go run ./cmd/server
-- Port:  set PORT environment variable to override (default :8080)
+- Port:  set PORT environment variable to override (default :4343)
   - PowerShell: $env:PORT = "3333"; go run ./cmd/server
   - Bash:       PORT=3333 go run ./cmd/server
 - Stop:  Ctrl+C (graceful shutdown)
