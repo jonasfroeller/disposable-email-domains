@@ -3,10 +3,12 @@ package metrics
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -69,6 +71,10 @@ func Register() {
 	if registered.Swap(true) {
 		return
 	}
+	reg.MustRegister(
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
 	reg.MustRegister(HTTPRequestsTotal, HTTPRequestDuration, RateLimitRejectedTotal, BlocklistSizeGauge, AllowlistSizeGauge, BlocklistAppendsTotal, BlocklistDuplicatesSkippedTotal, PSLRefreshSuccessTotal, PSLRefreshFailureTotal, PSLLastRefreshUnix, PSLConsecutiveFailures, PSLSizeDeltaWarningsTotal, AdminAuthFailuresTotal, AdminAuthSuccessTotal)
 }
 
@@ -78,6 +84,28 @@ func Handler() http.Handler { Register(); return promhttp.HandlerFor(reg, promht
 // Records metrics for a request.
 func ObserveRequest(method, path, status string, dur time.Duration, statusCode int) {
 	Register()
-	HTTPRequestsTotal.WithLabelValues(method, path, status).Inc()
-	HTTPRequestDuration.WithLabelValues(method, path, fmt.Sprintf("%d", statusCode)).Observe(dur.Seconds())
+	p := NormalizePath(path)
+	HTTPRequestsTotal.WithLabelValues(method, p, status).Inc()
+	HTTPRequestDuration.WithLabelValues(method, p, fmt.Sprintf("%d", statusCode)).Observe(dur.Seconds())
+}
+
+// NormalizePath reduces label cardinality by collapsing variable tail segments for known
+// path families (like /check/emails/{email}). It returns the input path unchanged when
+// no rule matches.
+func NormalizePath(path string) string {
+	if path == "" || path == "/" {
+		return path
+	}
+	// Known variable prefixes
+	for _, pref := range []string{
+		"/check/emails/",
+		"/check/domains/",
+		"/report/emails/",
+		"/report/domains/",
+	} {
+		if strings.HasPrefix(path, pref) {
+			return pref + "{value}"
+		}
+	}
+	return path
 }

@@ -52,37 +52,6 @@ func loadDotEnv(logger *log.Logger, path string) {
 	}
 }
 
-func fetchPSL(logger *log.Logger, dest string) {
-	client := &http.Client{Timeout: 15 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, "https://publicsuffix.org/list/public_suffix_list.dat", nil)
-	if err != nil {
-		logger.Printf("psl: build request error: %v", err)
-		return
-	}
-	req.Header.Set("User-Agent", "disposable-email-domains/psl-fetch")
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Printf("psl: fetch error: %v", err)
-		return
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		logger.Printf("psl: unexpected status: %s", resp.Status)
-		return
-	}
-	f, err := os.Create(dest)
-	if err != nil {
-		logger.Printf("psl: create file error: %v", err)
-		return
-	}
-	defer f.Close()
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		logger.Printf("psl: write file error: %v", err)
-		return
-	}
-	logger.Printf("psl: saved to %s", dest)
-}
-
 func main() {
 	// version is injected via -ldflags "-X main.version=..."
 	if version == "" {
@@ -98,8 +67,6 @@ func main() {
 	logger := slogadapter.New(rootLogger)
 
 	loadDotEnv(logger, ".env")
-
-	fetchPSL(logger, "public_suffix_list.dat")
 
 	cfg := config.Load(logger)
 	// Emit effective config (redacted tokens)
@@ -126,6 +93,9 @@ func main() {
 	}
 	refresher := pslrefresher.New(logger, "public_suffix_list.dat")
 	refresher.Interval = cfg.PSLRefreshInterval
+	// Perform an initial validated refresh (writes only if valid). If it fails,
+	// the background loop will retry with backoff; readiness will reflect PSL presence.
+	_ = refresher.RefreshNow()
 	refresher.Start()
 
 	internalStop := make(chan struct{})
