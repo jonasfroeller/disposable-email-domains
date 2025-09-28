@@ -1,9 +1,12 @@
 package storage
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"disposable-email-domains/internal/handlers"
@@ -67,6 +70,31 @@ func (s *MemoryStore) Delete(id string) bool {
 	return true
 }
 
+var idSeq atomic.Uint64
+
 func newID() string {
-	return time.Now().UTC().Format("20060102T150405.000000000Z07:00")
+	// 8 bytes timestamp (unix nanos), 4 bytes counter, 4 bytes random = 16 bytes -> 32 hex chars
+	buf := make([]byte, 16)
+	ts := time.Now().UnixNano()
+	for i := 0; i < 8; i++ { // big-endian timestamp
+		buf[7-i] = byte(ts)
+		ts >>= 8
+	}
+	c := idSeq.Add(1)
+	buf[8] = byte(c >> 24)
+	buf[9] = byte(c >> 16)
+	buf[10] = byte(c >> 8)
+	buf[11] = byte(c)
+	// random suffix
+	if _, err := rand.Read(buf[12:]); err != nil {
+		// fallback to time-derived bytes
+		t := time.Now().UnixNano()
+		buf[12] = byte(t)
+		buf[13] = byte(t >> 8)
+		buf[14] = byte(t >> 16)
+		buf[15] = byte(t >> 24)
+	}
+	dst := make([]byte, hex.EncodedLen(len(buf)))
+	hex.Encode(dst, buf)
+	return string(dst)
 }

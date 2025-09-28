@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  build-test:
+    name: Build & Test (Go ${{ matrix.go-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ["1.23.x", "1.24.x", "1.25.x"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          check-latest: true
+          cache: true
+      - name: Go env
+        run: go env
+      - name: Verify formatting
+        run: |
+          diff=$(gofmt -l . || true)
+          if [ -n "$diff" ]; then
+            echo "Unformatted files:" >&2
+            echo "$diff" >&2
+            exit 1
+          fi
+      - name: Vet
+        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
+          args: --timeout=5m
+      - name: Run tests (race)
+        run: go test -race -count=1 ./...
+      - name: Build
+        run: go build ./...
+      - name: Govulncheck
+        id: govuln
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: ${{ matrix.go-version }}
+          work-dir: .
+          go-package: ./...
+
+  fuzz:
+    name: Short Fuzz Smoke
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+          cache: true
+      - name: Run short fuzz (sanity check)
+        run: |
+          go test -run=^$ -fuzz=FuzzCheckerCheck -fuzztime=5s ./internal/domain
+          go test -run=^$ -fuzz=FuzzPSLValidate -fuzztime=5s ./internal/pslrefresher

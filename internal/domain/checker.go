@@ -10,10 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"disposable-email-domains/internal/metrics"
+
 	"golang.org/x/net/publicsuffix"
 )
 
-// Checker loads and evaluates allow/block lists and provides PSL-based domain checks.
+// Loads and evaluates allow/block lists and provides PSL-based domain checks.
 type Checker struct {
 	allowPath string
 	blockPath string
@@ -24,6 +26,7 @@ type Checker struct {
 	rawAllow  []string
 	rawBlock  []string
 	updatedAt time.Time
+	loaded    bool
 }
 
 func NewChecker(allowPath, blockPath string) *Checker {
@@ -33,7 +36,43 @@ func NewChecker(allowPath, blockPath string) *Checker {
 	}
 }
 
-// Load reads the allow/block files into memory (lowercased, trimmed) and updates indexes.
+// PatchBlock incrementally adds new blocklist domains to the in-memory indexes without
+// re-reading the underlying file. It assumes the canonical file has already been
+// atomically updated (append / rewrite) by the caller. Domains are normalized to
+// lowercase and trimmed; empty or comment lines are ignored. Duplicate entries are
+// skipped. updatedAt is refreshed only if at least one new domain was inserted.
+func (c *Checker) PatchBlock(domains []string) {
+	if len(domains) == 0 {
+		return
+	}
+	c.mu.Lock()
+	if c.block == nil { // in case Load was never called yet; be defensive
+		c.block = make(map[string]struct{})
+	}
+	inserted := 0
+	for _, d := range domains {
+		d = strings.ToLower(strings.TrimSpace(d))
+		if d == "" || strings.HasPrefix(d, "#") {
+			continue
+		}
+		if _, exists := c.block[d]; exists {
+			continue
+		}
+		c.block[d] = struct{}{}
+		c.rawBlock = append(c.rawBlock, d)
+		inserted++
+	}
+	if inserted > 0 {
+		c.updatedAt = time.Now().UTC()
+		if !c.loaded { // mark ready if first successful patch before Load
+			c.loaded = true
+		}
+		metrics.BlocklistSizeGauge.Set(float64(len(c.block)))
+	}
+	c.mu.Unlock()
+}
+
+// Reads the allow/block files into memory (lowercased, trimmed) and updates indexes.
 func (c *Checker) Load() error {
 	allow, rawAllow, err := readListFile(c.allowPath)
 	if err != nil {
@@ -49,8 +88,35 @@ func (c *Checker) Load() error {
 	c.rawAllow = rawAllow
 	c.rawBlock = rawBlock
 	c.updatedAt = time.Now().UTC()
+	c.loaded = true
+	metrics.BlocklistSizeGauge.Set(float64(len(block)))
+	metrics.AllowlistSizeGauge.Set(float64(len(allow)))
 	c.mu.Unlock()
 	return nil
+}
+
+// Returns true if the checker has successfully loaded lists at least once.
+func (c *Checker) IsReady() bool {
+	c.mu.RLock()
+	ready := c.loaded && !c.updatedAt.IsZero()
+	c.mu.RUnlock()
+	return ready
+}
+
+// Returns the number of domains currently in the blocklist map.
+func (c *Checker) BlockCount() int {
+	c.mu.RLock()
+	n := len(c.block)
+	c.mu.RUnlock()
+	return n
+}
+
+// Returns the number of domains currently in the allowlist map.
+func (c *Checker) AllowCount() int {
+	c.mu.RLock()
+	n := len(c.allow)
+	c.mu.RUnlock()
+	return n
 }
 
 func readListFile(path string) (set map[string]struct{}, raw []string, err error) {
@@ -77,7 +143,7 @@ func readListFile(path string) (set map[string]struct{}, raw []string, err error
 	return set, raw, nil
 }
 
-// Result describes the outcome of a domain/email check.
+// Describes the outcome of a domain/email check.
 type Result struct {
 	Input              string    `json:"input"`
 	Type               string    `json:"type"` // "email" or "domain"
@@ -160,7 +226,7 @@ func (c *Checker) Check(input string) Result {
 	return res
 }
 
-// Report is a validation summary similar to the Python script provided by the user.
+// Validation summary
 type Report struct {
 	ErrorsFound         bool      `json:"errors_found"`
 	PublicSuffixInBlock []string  `json:"public_suffix_in_blocklist"`
@@ -183,7 +249,6 @@ func (c *Checker) Validate() Report {
 
 	rep := Report{CheckedAt: time.Now().UTC()}
 
-	// Helper: check unsorted
 	isSorted := func(lines []string) (bool, string) {
 		sorted := append([]string(nil), lines...)
 		sort.Strings(sorted)
@@ -283,7 +348,7 @@ func (c *Checker) Validate() Report {
 	return rep
 }
 
-// Reload is a convenience that calls Load and returns an error if validation has fatal issues when strict is true.
+// Convenience that calls Load and returns an error if validation has fatal issues when strict is true.
 func (c *Checker) Reload(strict bool) error {
 	if err := c.Load(); err != nil {
 		return err
