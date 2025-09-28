@@ -206,10 +206,24 @@ func (c *Checker) Check(input string) Result {
 	res.IsPublicSuffixOnly = (ps != "" && ps == res.NormalizedDomain)
 	res.IsSubdomain = etld1 != "" && res.NormalizedDomain != etld1
 
+	// Consider both exact domain and registrable domain (eTLD+1) for matching.
+	// This makes a list entry for example.com apply to its subdomains as well.
 	c.mu.RLock()
-	_, allow := c.allow[res.NormalizedDomain]
-	_, block := c.block[res.NormalizedDomain]
+	_, allowExact := c.allow[res.NormalizedDomain]
+	_, blockExact := c.block[res.NormalizedDomain]
+	allowETLD1 := false
+	blockETLD1 := false
+	if etld1 != "" {
+		if _, ok := c.allow[etld1]; ok {
+			allowETLD1 = true
+		}
+		if _, ok := c.block[etld1]; ok {
+			blockETLD1 = true
+		}
+	}
 	c.mu.RUnlock()
+	allow := allowExact || allowETLD1
+	block := blockExact || blockETLD1
 	res.Allowlisted = allow
 	res.Blocklisted = block
 	if allow {

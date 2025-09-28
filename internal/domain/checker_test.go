@@ -40,3 +40,27 @@ func TestCheckerLoadAndCheck(t *testing.T) {
 		t.Fatalf("expected neutral, got %+v", r3)
 	}
 }
+
+func TestETLD1Matching(t *testing.T) {
+	writeTempList(t, "allowlist.conf", []string{"good.com"})
+	writeTempList(t, "blocklist.conf", []string{"bad.com"})
+	c := NewChecker("allowlist.conf", "blocklist.conf")
+	if err := c.Load(); err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	// Subdomain of allowlisted domain should be allowed
+	r1 := c.Check("user@mail.good.com")
+	if r1.Status != "allow" || !r1.Allowlisted {
+		t.Fatalf("expected allow via eTLD+1, got %+v", r1)
+	}
+	// Subdomain of blocklisted domain should be blocked
+	r2 := c.Check("x.y.bad.com")
+	if r2.Status != "block" || !r2.Blocklisted {
+		t.Fatalf("expected block via eTLD+1, got %+v", r2)
+	}
+	// Lookalike domain containing bad.com as a label should NOT match
+	r3 := c.Check("bad.com.notbad.org")
+	if r3.Status != "neutral" {
+		t.Fatalf("expected neutral for lookalike, got %+v", r3)
+	}
+}
