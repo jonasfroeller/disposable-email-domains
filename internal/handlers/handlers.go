@@ -23,12 +23,64 @@ import (
 	"disposable-email-domains/internal/config"
 	"disposable-email-domains/internal/domain"
 	"disposable-email-domains/internal/metrics"
+
+	"golang.org/x/net/publicsuffix"
 )
 
 type Item struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// Filters out URLs, emails, and obviously invalid labels, and ensures the string has a known public suffix.
+func isLikelyDomain(s string) bool {
+	if s == "" {
+		return false
+	}
+	// Reject if contains URL scheme or path/query fragments
+	if strings.Contains(s, "://") || strings.ContainsAny(s, "/?@ \\:\t\n\r") {
+		return false
+	}
+	// Trim leading dot and trailing dot, common in some lists
+	s = strings.Trim(s, ".")
+	if len(s) == 0 {
+		return false
+	}
+	// Basic character check: allow a-z 0-9 - and dots
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '.' {
+			continue
+		}
+		return false
+	}
+	// Must contain at least one dot
+	if !strings.Contains(s, ".") {
+		return false
+	}
+	// Labels cannot start or end with '-'
+	parts := strings.Split(s, ".")
+	for _, p := range parts {
+		if p == "" {
+			return false
+		}
+		if p[0] == '-' || p[len(p)-1] == '-' {
+			return false
+		}
+	}
+	// Check it has a known public suffix and an eTLD+1
+	if _, icann := publicsuffix.PublicSuffix(s); !icann {
+		// still allow private suffixes, but ensure EffectiveTLDPlusOne works
+		if _, err := publicsuffix.EffectiveTLDPlusOne(s); err != nil {
+			return false
+		}
+		return true
+	}
+	if _, err := publicsuffix.EffectiveTLDPlusOne(s); err != nil {
+		return false
+	}
+	return true
 }
 
 // (currently not heavily exercised; kept for future extension/testing scaffolding).
@@ -190,11 +242,14 @@ func (a *API) Index(w http.ResponseWriter, r *http.Request) {
 		{Method: "GET", Path: "/validate", Desc: "Validate lists", SampleURL: "/validate", RespType: reportType, ContentType: "application/json"},
 		{Method: "POST", Path: "/reload", Desc: "Full reload", SampleURL: "/reload", RespType: fmt.Sprintf("%T", map[string]any{}), ContentType: "application/json", NeedsToken: true},
 		{Method: "GET", Path: "/report", Desc: "Validate report (HTML)", SampleURL: "/report", RespType: "text/html", ContentType: "text/html"},
+		{Method: "GET", Path: "/report/check", Desc: "Check report via ?input=", SampleURL: "/report/check?input=test%40example.com", RespType: "text/html", ContentType: "text/html"},
 		{Method: "GET", Path: "/report/emails/{email}", Desc: "Check report (HTML)", SampleURL: "/report/emails/test%40example.com", RespType: "text/html", ContentType: "text/html"},
 		{Method: "GET", Path: "/report/domains/{domain}", Desc: "Check report (HTML)", SampleURL: "/report/domains/example.com", RespType: "text/html", ContentType: "text/html"},
 		{Method: "GET", Path: "/allowlist.conf", Desc: "Download allowlist", SampleURL: "/allowlist.conf", RespType: "text/plain", ContentType: "text/plain"},
 		{Method: "GET", Path: "/blocklist.conf", Desc: "Download blocklist", SampleURL: "/blocklist.conf", RespType: "text/plain", ContentType: "text/plain"},
 		{Method: "GET", Path: "/public_suffix_list.dat", Desc: "Download PSL snapshot", SampleURL: "/public_suffix_list.dat", RespType: "text/plain", ContentType: "text/plain"},
+		{Method: "GET", Path: "/psl", Desc: "Download PSL snapshot (alias)", SampleURL: "/psl", RespType: "text/plain", ContentType: "text/plain"},
+		{Method: "GET", Path: "/psl.txt", Desc: "Download PSL snapshot (alias)", SampleURL: "/psl.txt", RespType: "text/plain", ContentType: "text/plain"},
 		{Method: "GET", Path: "/metrics", Desc: "Prometheus metrics", SampleURL: "/metrics", RespType: "text/plain; OpenMetrics", ContentType: "text/plain"},
 		{Method: "POST", Path: "/admin/psl/refresh", Desc: "Force PSL refresh", SampleURL: "/admin/psl/refresh", RespType: fmt.Sprintf("%T", map[string]any{}), ContentType: "application/json", NeedsToken: true},
 	}
@@ -299,6 +354,8 @@ details[open] .arrow{transform:rotate(45deg)}
 		<a class="row" href="/allowlist.conf" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/allowlist.conf</span><span class="desc">Download allowlist</span></a>
 		<a class="row" href="/blocklist.conf" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/blocklist.conf</span><span class="desc">Download blocklist</span></a>
 		<a class="row" href="/public_suffix_list.dat" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/public_suffix_list.dat</span><span class="desc">Download PSL snapshot</span></a>
+		<a class="row" href="/psl" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/psl</span><span class="desc">Download PSL snapshot (alias)</span></a>
+		<a class="row" href="/psl.txt" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/psl.txt</span><span class="desc">Download PSL snapshot (alias)</span></a>
 		<a class="row" href="/metrics" target="_blank" rel="noopener"><span class="method get">GET</span><span class="path">/metrics</span><span class="desc">Prometheus metrics</span></a>
 		<div class="row"><span class="method post">POST</span><span class="path">/admin/psl/refresh</span><span class="desc">Force PSL refresh</span></div>
 	  </div>
@@ -314,7 +371,9 @@ details[open] .arrow{transform:rotate(45deg)}
 	  <div class="code"><code>curl -sS -H "X-Admin-Token: &lt;token&gt;" -H "Content-Type: application/json" -d '{"entries":["foo.com","bar.io"]}' http://` + host + `/blocklist</code></div>
 	  <div class="code"><code>curl -sS -H "X-Admin-Token: &lt;token&gt;" -H "Content-Type: application/json" -d '{"url":"https://example.com/list.txt"}' http://` + host + `/blocklist</code></div>
       <div class="code"><code>curl -sS 'http://` + host + `/check?q=test@example.com'</code></div>
-      <div class="code"><code>curl -sS http://` + host + `/validate</code></div>
+	<div class="code"><code>curl -sS http://` + host + `/validate</code></div>
+	<div class="code"><code>curl -sS http://` + host + `/psl</code></div>
+	<div class="code"><code>http://` + host + `/report/check?input=test%40example.com</code></div>
       <div class="code"><code>http://` + host + `/report</code></div>
       <div class="small" style="padding:0 14px 12px 14px;color:#9fb3d9">Tip: add “| jq” to pretty-print JSON if you have jq installed.</div>
     </div>
@@ -457,10 +516,7 @@ details[open] .arrow{transform:rotate(45deg)}
 		'https://raw.githubusercontent.com/7c/fakefilter/refs/heads/main/txt/data.txt',
 		'https://raw.githubusercontent.com/FGRibreau/mailchecker/refs/heads/master/list.txt',
 		'https://raw.githubusercontent.com/amieiro/disposable-email-domains/refs/heads/master/denyDomains.txt',
-		'https://gist.githubusercontent.com/ammarshah/f5c2624d767f91a7cbdc4e54db8dd0bf/raw/660fd949eba09c0b86574d9d3aa0f2137161fc7c/all_email_provider_domains.txt',
 		'https://github.com/gblmarquez/disposable-email-domains/raw/refs/heads/main/disposable_email_domains_blocklist.txt',
-		'https://raw.githubusercontent.com/unkn0w/disposable-email-domain-list/refs/heads/main/domains.txt',
-		'https://raw.githubusercontent.com/ivolo/disposable-email-domains/refs/heads/master/wildcard.json',
 		'https://github.com/IntegerAlex/disposable-email-detector/raw/refs/heads/main/index.json'
       ];
 
@@ -498,11 +554,9 @@ details[open] .arrow{transform:rotate(45deg)}
 					const data = await resp.json().catch(() => ({}));
 					if (!resp.ok) {
 						resEl.style.display = 'block';
-						if (resp.status === 401 || resp.status === 403) {
-							resEl.textContent = 'Auth error: ' + (data.error || 'unauthorized');
-						} else {
-							resEl.textContent = 'Error: ' + (data.error || (resp.status + ' ' + resp.statusText));
-						}
+						const errMsg = (data && data.error && (data.error.message || data.error.code)) ? (data.error.message || data.error.code) : ((typeof data.error === 'string') ? data.error : (resp.status + ' ' + resp.statusText));
+						const prefix = (resp.status === 401 || resp.status === 403) ? 'Auth error: ' : 'Error: ';
+						resEl.textContent = prefix + errMsg;
 						return;
 					}
 					resEl.style.display = 'block';
@@ -662,6 +716,9 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 						if v == "" || strings.HasPrefix(v, "#") {
 							continue
 						}
+						if !isLikelyDomain(v) {
+							continue
+						}
 						if len(v) > maxLineLen {
 							continue
 						}
@@ -675,11 +732,20 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
+				// If content looks like a JSON object, reject to avoid accidentally ingesting documents like wildcard maps.
+				if len(trimmed) > 0 && trimmed[0] == '{' {
+					respondError(w, http.StatusBadRequest, "unsupported JSON document; expected array of strings")
+					return
+				}
+
 				// Fallback to plaintext, one domain per non-empty, non-comment line
 				s := bufio.NewScanner(bytes.NewReader(data))
 				for s.Scan() {
 					line := strings.ToLower(strings.TrimSpace(s.Text()))
 					if line == "" || strings.HasPrefix(line, "#") {
+						continue
+					}
+					if !isLikelyDomain(line) {
 						continue
 					}
 					if len(line) > maxLineLen {
@@ -810,6 +876,9 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 func readBlocklistEntriesPaged(path string, offset, limit int) ([]map[string]any, int, error) {
 	f, err := os.Open(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []map[string]any{}, 0, nil
+		}
 		return nil, 0, err
 	}
 	defer f.Close()
@@ -842,6 +911,9 @@ func readBlocklistEntriesPaged(path string, offset, limit int) ([]map[string]any
 func buildExistingSet(path string, set map[string]struct{}) (int, error) {
 	f, err := os.Open(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
 		return 0, err
 	}
 	defer f.Close()
@@ -892,11 +964,13 @@ func (a *API) GetPSLFile(w http.ResponseWriter, r *http.Request) {
 		respondMethodNotAllowed(w, http.MethodGet)
 		return
 	}
-	if r.URL.Path != "/public_suffix_list.dat" {
+	// Accept multiple aliases to avoid upstream filters blocking .dat paths
+	if r.URL.Path != "/public_suffix_list.dat" && r.URL.Path != "/psl" && r.URL.Path != "/psl.txt" {
 		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=public_suffix_list.dat")
 	http.ServeFile(w, r, "public_suffix_list.dat")
 }
 
@@ -1397,6 +1471,29 @@ func (a *API) ReportCheckDomainHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := a.Check.Check(val)
+	writeCheckHTML(w, r, res)
+}
+
+// HTML single-check report via query: /report/check?input=...
+func (a *API) ReportCheckQueryHTML(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		respondMethodNotAllowed(w, http.MethodGet)
+		return
+	}
+	if a.Check == nil {
+		respondError(w, http.StatusServiceUnavailable, "checker not initialized")
+		return
+	}
+	if r.URL.Path != "/report/check" {
+		http.NotFound(w, r)
+		return
+	}
+	q := strings.TrimSpace(r.URL.Query().Get("input"))
+	if q == "" {
+		respondError(w, http.StatusBadRequest, "missing input")
+		return
+	}
+	res := a.Check.Check(q)
 	writeCheckHTML(w, r, res)
 }
 

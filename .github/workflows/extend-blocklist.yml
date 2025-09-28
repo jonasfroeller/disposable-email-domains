@@ -62,10 +62,7 @@ jobs:
             "https://raw.githubusercontent.com/7c/fakefilter/refs/heads/main/txt/data.txt",
             "https://raw.githubusercontent.com/FGRibreau/mailchecker/refs/heads/master/list.txt",
             "https://raw.githubusercontent.com/amieiro/disposable-email-domains/refs/heads/master/denyDomains.txt",
-            "https://gist.githubusercontent.com/ammarshah/f5c2624d767f91a7cbdc4e54db8dd0bf/raw/660fd949eba09c0b86574d9d3aa0f2137161fc7c/all_email_provider_domains.txt",
             "https://github.com/gblmarquez/disposable-email-domains/raw/refs/heads/main/disposable_email_domains_blocklist.txt",
-            "https://raw.githubusercontent.com/unkn0w/disposable-email-domain-list/refs/heads/main/domains.txt",
-            "https://raw.githubusercontent.com/ivolo/disposable-email-domains/refs/heads/master/wildcard.json",
             "https://github.com/IntegerAlex/disposable-email-detector/raw/refs/heads/main/index.json"
           ]'
 
@@ -82,6 +79,40 @@ jobs:
           echo "appended=${appended}" >> $GITHUB_OUTPUT
           echo "skipped=${skipped}" >> $GITHUB_OUTPUT
           echo "Result: Appended: ${appended}, Skipped duplicates: ${skipped}"
+
+      - name: Remove allowlisted domains from blocklist
+        run: |
+          set -euo pipefail
+          echo "Filtering blocklist against allowlist.conf (preserving comments/blank lines)"
+          tmp="blocklist.conf.tmp"
+          awk 'BEGIN{IGNORECASE=1}
+               FNR==NR {
+                 line=$0; sub(/^\s+|\s+$/, "", line);
+                 if (line != "" && line !~ /^#/) { allow[tolower(line)]=1 }
+                 next
+               }
+               {
+                 orig=$0
+                 line=$0; sub(/^\s+|\s+$/, "", line); low=tolower(line)
+                 if (line != "" && line !~ /^#/ && (low in allow)) next
+                 print orig
+               }' allowlist.conf blocklist.conf > "$tmp"
+          mv "$tmp" blocklist.conf
+
+      - name: Reload server and validate lists
+        run: |
+          set -euo pipefail
+          echo "Reloading server (strict) after filtering..."
+          curl -sS -f -H "X-Admin-Token: ${ADMIN_TOKEN}" -X POST "http://127.0.0.1:8080/reload?strict=true"
+          echo "Validating lists..."
+          curl -sS -f "http://127.0.0.1:8080/validate" | tee validate.json
+          echo "Checking intersections between allowlist and blocklist..."
+          inter_len=$(jq '.intersection_between_lists | length' validate.json)
+          echo "intersection_between_lists: ${inter_len}"
+          if [ "${inter_len}" -gt 0 ]; then
+            echo "Error: intersection between allowlist and blocklist detected." >&2
+            exit 1
+          fi
 
       - name: Commit updated lists (if changed)
         run: |

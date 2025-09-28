@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"io"
 	"log"
 	"net/http"
@@ -69,6 +71,24 @@ func main() {
 	loadDotEnv(logger, ".env")
 
 	cfg := config.Load(logger)
+	if len(cfg.AdminTokens) == 0 {
+		if v, ok := os.LookupEnv("AUTO_ADMIN_TOKEN"); ok {
+			vl := strings.ToLower(strings.TrimSpace(v))
+			if vl == "1" || vl == "true" || vl == "yes" || vl == "on" {
+				if tok, err := generateToken(32); err == nil {
+					cfg.AdminTokens = []string{tok}
+					_ = os.Setenv("ADMIN_TOKEN", tok)
+					rootLogger.Info("auto_admin_token_generated",
+						slog.String("token_sample", tok[:4]+"…"+tok[len(tok)-4:]),
+						slog.String("env", "ADMIN_TOKEN"),
+					)
+					log.Printf("Admin token (copy now): %s\n", tok)
+				} else {
+					rootLogger.Error("auto_admin_token_error", slog.String("error", err.Error()))
+				}
+			}
+		}
+	}
 	// Emit effective config (redacted tokens)
 	{
 		redacted := make([]string, 0, len(cfg.AdminTokens))
@@ -209,4 +229,12 @@ func quoteJoin(elems []string) string {
 		b.WriteByte('"')
 	}
 	return b.String()
+}
+
+func generateToken(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }

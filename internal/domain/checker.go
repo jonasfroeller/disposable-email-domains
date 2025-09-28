@@ -74,6 +74,13 @@ func (c *Checker) PatchBlock(domains []string) {
 
 // Reads the allow/block files into memory (lowercased, trimmed) and updates indexes.
 func (c *Checker) Load() error {
+	if err := ensureFileExists(c.allowPath, "# allowlist\n"); err != nil {
+		return err
+	}
+	if err := ensureFileExists(c.blockPath, "# blocklist\n"); err != nil {
+		return err
+	}
+
 	allow, rawAllow, err := readListFile(c.allowPath)
 	if err != nil {
 		return err
@@ -122,6 +129,9 @@ func (c *Checker) AllowCount() int {
 func readListFile(path string) (set map[string]struct{}, raw []string, err error) {
 	f, err := os.Open(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]struct{}{}, []string{}, nil
+		}
 		return nil, nil, err
 	}
 	defer f.Close()
@@ -141,6 +151,19 @@ func readListFile(path string) (set map[string]struct{}, raw []string, err error
 		return nil, nil, err
 	}
 	return set, raw, nil
+}
+
+func ensureFileExists(path, header string) error {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			if !strings.HasSuffix(header, "\n") {
+				header += "\n"
+			}
+			return os.WriteFile(path, []byte(header), 0o644)
+		}
+		return err
+	}
+	return nil
 }
 
 // Describes the outcome of a domain/email check.

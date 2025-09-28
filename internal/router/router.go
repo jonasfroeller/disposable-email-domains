@@ -54,11 +54,14 @@ func New(store storageAPI, logger *log.Logger, checker *domain.Checker, cfg conf
 	mux.HandleFunc("/report", api.ReportValidateHTML)
 	mux.HandleFunc("/report/emails/", api.ReportCheckEmailHTML)
 	mux.HandleFunc("/report/domains/", api.ReportCheckDomainHTML)
+	mux.HandleFunc("/report/check", api.ReportCheckQueryHTML)
 
 	// Lists download
 	mux.HandleFunc("/allowlist.conf", api.GetAllowlistFile)
 	mux.HandleFunc("/blocklist.conf", api.GetBlocklistFile)
 	mux.HandleFunc("/public_suffix_list.dat", api.GetPSLFile)
+	mux.HandleFunc("/psl", api.GetPSLFile)
+	mux.HandleFunc("/psl.txt", api.GetPSLFile)
 
 	// Blocklist JSON management
 	mux.HandleFunc("/blocklist", api.Blocklist)
