@@ -1,9 +1,9 @@
 # Disposable Email Domains Service Checker
 
-A small, hardened baseline HTTP service (security & observability enhanced) using only Go's standard library plus Prometheus client for metrics to check disposable/temporary email domains and manage block/allow lists.
+A small, hardened HTTP service in Go to check disposable/temporary email domains and manage block/allow lists. Uses Go's standard library, `golang.org/x/net/publicsuffix`, `golang.org/x/time/rate`, and Prometheus client for metrics.
 
 Features
-- Lean codebase (std lib + Prometheus metrics only)
+- Lean codebase (Go stdlib + `golang.org/x/*` + Prometheus client)
 - Endpoints: Health (`/healthz`), Status (`/status`), Readiness (`/readyz`), Blocklist (GET/POST), Check, Validate, Report (HTML), Raw list & PSL downloads, Metrics (`/metrics`)
 - WAF-safe short aliases for checks: `/q` (query), `/e/{email}`, `/d/{domain}`
 - Middleware: structured logging (JSON via slog), panic recovery, security headers, request ID, per-IP token bucket rate limiting (x/time/rate), service version + request duration headers
@@ -14,7 +14,7 @@ Features
 - Background Public Suffix List (PSL) refresher (integrity checks, conditional GET, exponential backoff, safety belt metrics)
 - Prometheus observability: request counters + latency histograms, rate-limit rejections, blocklist size, PSL refresh metrics & failure streak, last refresh timestamp
 - Graceful shutdown on SIGINT/SIGTERM
- - Sensible server timeouts and MaxHeaderBytes (ReadTimeout 5s, ReadHeaderTimeout 5s, WriteTimeout 10s, IdleTimeout 60s, MaxHeaderBytes 1MB)
+- Sensible server timeouts and MaxHeaderBytes (ReadTimeout 5s, ReadHeaderTimeout 5s, WriteTimeout 10s, IdleTimeout 60s, MaxHeaderBytes 1MB)
 - Simple in-memory components plus on-disk list files
 
 Project structure
@@ -25,37 +25,42 @@ Project structure
 - internal/storage/memory.go — simple example store (NOT used for block/allow lists persistence; block/allow lists persist via on-disk `*.conf` files)
 
 API endpoints
-- GET  /            — HTML index
-- GET  /healthz     — health check
-- GET  /livez       — liveness (always OK while process running)
-- GET  /status      — lightweight JSON status (counts & last update)
-- GET  /readyz      — readiness (lists & PSL presence)
-- GET  /blocklist   — JSON { entries: [...], count: N }
-- POST /blocklist   — extend list via { "entries": ["foo.com"...] }, { "url": "https://..." }, or { "urls": [..] } (admin token)
-- GET  /check       — query via /check?q=<email-or-domain>
-- Auto-redirects (307) GET /check* to WAF-safe aliases unless disabled
-- GET  /q           — alias for /check?q= (alternative if upstream WAF blocks "/check")
-- GET  /check/emails/{email}
-- GET  /check/domains/{domain}
-- GET  /emails/{email}   — alias (alternative if upstream WAF blocks "/check")
-- GET  /domains/{domain} — alias (alternative if upstream WAF blocks "/check")
-- GET  /e/{email}        — short alias (recommended in production if upstream blocks "/emails")
-- GET  /d/{domain}       — short alias (recommended in production if upstream blocks "/domains")
-- POST /check/emails  — batch check emails (JSON array/object or text/plain newline list)
-- POST /check/domains — batch check domains (JSON array/object or text/plain newline list)
-  - Add `?format=ndjson` to stream results as NDJSON for very large batches
-- GET  /validate    — validation summary of list consistency
-- POST /reload      — reload lists from disk (admin token; rarely needed now)
-- GET  /report      — HTML validation report
-- GET  /report/emails/{email} — HTML single email check
-- GET  /report/domains/{domain} — HTML single domain check
-- GET  /allowlist.conf            — raw allowlist file (text/plain)
-- GET  /blocklist.conf            — raw blocklist file (text/plain)
-- GET  /public_suffix_list.dat    — raw PSL snapshot (text/plain)
-- GET  /metrics                   — Prometheus exposition
- - POST /admin/psl/refresh        — force an immediate PSL refresh attempt (admin token)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/` | HTML index with API explorer | None |
+| GET | `/healthz` | Health check | None |
+| GET | `/livez` | Liveness (always OK while process running) | None |
+| GET | `/status` | Lightweight JSON status (counts & last update) | None |
+| GET | `/readyz` | Readiness (lists loaded & PSL present) | None |
+| GET | `/blocklist` | List blocklist (`?summary=true`, paginate with `?offset=&limit=`) | None |
+| POST | `/blocklist` | Extend blocklist via `entries`, `url`, or `urls` (`https://` only) | `X-Admin-Token` |
+| GET | `/check` | Query via `?q=<email-or-domain>` | None |
+| GET | `/q` | Alias for `/check?q=` (WAF-safe) | None |
+| GET | `/check/emails/{email}` | Check email | None |
+| GET | `/check/domains/{domain}` | Check domain | None |
+| GET | `/emails/{email}` | Alias (WAF-safe) for email check | None |
+| GET | `/domains/{domain}` | Alias (WAF-safe) for domain check | None |
+| GET | `/e/{email}` | Short alias (WAF-safe) for email check | None |
+| GET | `/d/{domain}` | Short alias (WAF-safe) for domain check | None |
+| POST | `/check/emails` | Batch emails (JSON array/object or text/plain; `?format=ndjson` streams) | None |
+| POST | `/check/domains` | Batch domains (JSON array/object or text/plain; `?format=ndjson` streams) | None |
+| GET | `/validate` | Validation summary of list consistency | None |
+| POST | `/reload` | Reload lists from disk (`?strict=true` to fail on validation issues) | `X-Admin-Token` |
+| GET | `/report` | HTML validation report | None |
+| GET | `/report/check` | HTML single input check via `?input=` | None |
+| GET | `/report/emails/{email}` | HTML single email check | None |
+| GET | `/report/domains/{domain}` | HTML single domain check | None |
+| GET | `/allowlist.conf` | Raw allowlist file (text/plain) | None |
+| GET | `/blocklist.conf` | Raw blocklist file (text/plain) | None |
+| GET | `/public_suffix_list.dat` | Raw PSL snapshot (text/plain) | None |
+| GET | `/psl` | PSL snapshot alias (text/plain) | None |
+| GET | `/psl.txt` | PSL snapshot alias (text/plain) | None |
+| GET | `/metrics` | Prometheus exposition | None |
+| POST | `/admin/psl/refresh` | Force immediate PSL refresh attempt | `X-Admin-Token` |
 
 Additional semantics
+- GET requests to `/check`, `/check/emails/*`, and `/check/domains/*` auto-redirect (307) to aliases (`/q`, `/e/*`, `/d/*`) when `ENABLE_CHECK_REDIRECTS=true`.
 - `POST /blocklist` supports optional `?reload=true` to force a full parse + validation after applying a patch (normally unnecessary because in-memory state is patched immediately).
 - `POST /reload?strict=true` will fail (400) if validation finds issues (duplicates, public suffix only entries, etc.). Without `strict=true` it always reloads.
 
@@ -93,46 +98,46 @@ Windows (cmd):
 ```bat
 set ADMIN_TOKEN=replace_with_random_value
 go run ./cmd\server
-curl -sS -H "X-Admin-Token: %ADMIN_TOKEN%" -H "Content-Type: application/json" -d "{\"entries\":[\"example.com\"]}" http://localhost:8080/blocklist
+curl -sS -H "X-Admin-Token: %ADMIN_TOKEN%" -H "Content-Type: application/json" -d "{\"entries\":[\"example.com\"]}" http://localhost:4343/blocklist
 ```
 
 Batch examples (Windows cmd):
 ```bat
 REM Emails JSON array
-curl -s -H "Content-Type: application/json" -d "[\"test@example.com\",\"foo@bar.com\"]" http://localhost:8080/check/emails
+curl -s -H "Content-Type: application/json" -d "[\"test@example.com\",\"foo@bar.com\"]" http://localhost:4343/check/emails
 
 REM Domains newline file
 > domains.txt (echo example.com& echo sub.mail.xyz)
-curl -s -H "Content-Type: text/plain" --data-binary @domains.txt http://localhost:8080/check/domains
+curl -s -H "Content-Type: text/plain" --data-binary @domains.txt http://localhost:4343/check/domains
 ```
 
 Quick checks
 - Health:
-  - curl -i http://localhost:8080/healthz
-  - PowerShell: Invoke-RestMethod http://localhost:8080/healthz | ConvertTo-Json -Depth 5
+  - curl -i http://localhost:4343/healthz
+  - PowerShell: Invoke-RestMethod http://localhost:4343/healthz | ConvertTo-Json -Depth 5
 - Blocklist (JSON):
-  - curl -s http://localhost:8080/blocklist | jq
-  - curl -s -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"entries":["foo.com","bar.io"]}' http://localhost:8080/blocklist | jq
-  - curl -s -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"url":"https://example.com/list.txt"}' http://localhost:8080/blocklist | jq
+  - curl -s http://localhost:4343/blocklist | jq
+  - curl -s -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"entries":["foo.com","bar.io"]}' http://localhost:4343/blocklist | jq
+  - curl -s -H "X-Admin-Token: $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"url":"https://example.com/list.txt"}' http://localhost:4343/blocklist | jq
 - Check:
-  - curl -s 'http://localhost:8080/check?q=test@example.com' | jq
-  - curl -s http://localhost:8080/e/test@example.com | jq
-  - curl -s http://localhost:8080/d/example.com | jq
-  - (also available) curl -s http://localhost:8080/check/emails/test@example.com | jq
-  - (also available) curl -s http://localhost:8080/check/domains/example.com | jq
+  - curl -s 'http://localhost:4343/check?q=test@example.com' | jq
+  - curl -s http://localhost:4343/e/test@example.com | jq
+  - curl -s http://localhost:4343/d/example.com | jq
+  - (also available) curl -s http://localhost:4343/check/emails/test@example.com | jq
+  - (also available) curl -s http://localhost:4343/check/domains/example.com | jq
   - Batch (emails) JSON array:
-    - curl -s -H 'Content-Type: application/json' -d '["test@example.com","foo@bar.com"]' http://localhost:8080/check/emails | jq
+    - curl -s -H 'Content-Type: application/json' -d '["test@example.com","foo@bar.com"]' http://localhost:4343/check/emails | jq
   - Batch (emails) text/plain:
-    - printf "a@b.com\nc@d.net\n" | curl -s -H 'Content-Type: text/plain' --data-binary @- http://localhost:8080/check/emails | jq
+    - printf "a@b.com\nc@d.net\n" | curl -s -H 'Content-Type: text/plain' --data-binary @- http://localhost:4343/check/emails | jq
   - Batch (domains) JSON array:
-    - curl -s -H 'Content-Type: application/json' -d '["example.com","sub.mail.xyz"]' http://localhost:8080/check/domains | jq
+    - curl -s -H 'Content-Type: application/json' -d '["example.com","sub.mail.xyz"]' http://localhost:4343/check/domains | jq
   - Batch (domains) text/plain:
-    - printf "example.com\nsub.mail.xyz\n" | curl -s -H 'Content-Type: text/plain' --data-binary @- http://localhost:8080/check/domains | jq
+    - printf "example.com\nsub.mail.xyz\n" | curl -s -H 'Content-Type: text/plain' --data-binary @- http://localhost:4343/check/domains | jq
   - NDJSON streaming (emails):
-    - printf "a@b.com\nc@d.net\n" | curl -s -H 'Content-Type: text/plain' --data-binary @- "http://localhost:8080/check/emails?format=ndjson" | head
+    - printf "a@b.com\nc@d.net\n" | curl -s -H 'Content-Type: text/plain' --data-binary @- "http://localhost:4343/check/emails?format=ndjson" | head
 - Validate + Report:
-  - curl -s http://localhost:8080/validate | jq
-  - curl -s http://localhost:8080/report
+  - curl -s http://localhost:4343/validate | jq
+  - curl -s http://localhost:4343/report
 
 What's included
 - Proper error handling and JSON problem responses
@@ -245,7 +250,9 @@ Environment variables:
 | `TRUST_PROXY_HEADERS` | false | Honor X-Forwarded-For / X-Real-IP for client IP extraction |
 | `RATE_LIMIT_BYPASS_DOMAINS` | (empty) | Comma/space separated hostnames that completely bypass rate limiting (e.g. `42websites.com`) |
 | `ENABLE_CHECK_REDIRECTS` | true | Redirect GET /check, /check/emails/*, /check/domains/* to alias paths (/q, /e/*, /d/*) to avoid WAF 403s |
-| `ENABLE_SAMPLE_WARMING` + `SAMPLE_CHECK_INTERVAL` | (see above) | Periodic POST /check warming job (JSON payload) when enabled |
+| `BATCH_MAX_ITEMS` | 200000 | Max items per non-streaming batch request |
+| `BATCH_STREAM_MAX_ITEMS` | 1000000 | Max items per streaming (NDJSON) batch request |
+| `AUTO_ADMIN_TOKEN` | false | Generate and print a token when none configured (truthy: `1`, `true`, `yes`, `on`) |
 
 Access log vs metrics
 - `http_requests_total` labels: `method`, `path`, `status` (status text string)
@@ -300,41 +307,47 @@ Key flags:
 
 Unlimited throughput example (attempt to push as hard as possible):
 ```
-go run ./cmd/bench -url http://127.0.0.1:8080/check -duration=30s -c=200
+go run ./cmd/bench -url http://127.0.0.1:4343/check -duration=30s -c=200
 ```
 
 Cap QPS (e.g. 3000 req/s) with fewer workers (workers should still be enough to hit your cap):
 ```
-go run ./cmd/bench -url http://127.0.0.1:8080/check -duration=45s -c=150 -qps=3000
+go run ./cmd/bench -url http://127.0.0.1:4343/check -duration=45s -c=150 -qps=3000
 ```
 
 Use explicit placeholder and a custom queries file:
 ```
 printf "foo@example.com\nbar@example.net\n" > queries.txt
-go run ./cmd/bench -url "http://127.0.0.1:8080/check?q={q}" -queries=queries.txt -duration=20s -c=64
+go run ./cmd/bench -url "http://127.0.0.1:4343/check?q={q}" -queries=queries.txt -duration=20s -c=64
 ```
 
 Add a warmup period (excluded from stats) then 60s measurement:
 ```
-go run ./cmd/bench -url http://127.0.0.1:8080/check -warmup=10s -duration=70s -c=128
+go run ./cmd/bench -url http://127.0.0.1:4343/check -warmup=10s -duration=70s -c=128
 ```
 
 Windows (cmd.exe) example (unlimited mode; qps=0 is implicit):
 ```
-go run .\cmd\bench -url http://127.0.0.1:8080/check -duration=20s -c=100
+go run .\cmd\bench -url http://127.0.0.1:4343/check -duration=20s -c=100
 ```
+
+Environment (where benchmark was run):
+- OS: Microsoft Windows 11 Pro (10.0.22631) 64-bit
+- CPU: AMD Ryzen 9 5900X (12 cores, 24 threads), max clock ~3701 MHz
+- RAM: 31.93 GB
+- Go: go1.24.7 windows/amd64
 
 Sample output:
 ```
 === Benchmark Summary ===
-Target:      http://127.0.0.1:8080/check
-Duration:    30s (warmup 0s)
-Workers:     200
-Requests:    5,432,100 (success 5,432,100, error 0)
-Throughput:  181070.0 req/s
-Latency p50: 1.4ms  p95: 3.2ms  p99: 5.8ms
+Target:      http://127.0.0.1:4343/check
+Duration:    10.004s (warmup 0s)
+Workers:     64
+Requests:    115098 (success 115098, http_error 0, net_error 0)
+Throughput:  11504.4 req/s
+Latency p50: 5.491ms  p95: 7.063ms  p99: 9.04ms
 Status codes:
-  200: 5432100
+  200: 115098
 ```
 
 Interpretation:
