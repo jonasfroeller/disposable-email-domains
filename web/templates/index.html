@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>API Index</title>
+	<link rel="icon" type="image/png" href="https://avatars.githubusercontent.com/u/121523551?v=4" />
+	<style>
+		:root {
+			--bg: #0b1020;
+			--panel: #121a2e;
+			--text: #e6eefc;
+			--muted: #9fb3d9;
+			--accent: #7cc4ff;
+			--ok: #22c55e;
+			--warn: #f59e0b;
+			--err: #ef4444;
+			--chip: #243250;
+			--col-method: 72px;
+			--col-path-min: 220px;
+			--col-desc-min: 260px;
+			--col-type: 220px;
+			scrollbar-color: #1f2c4a transparent;
+			scrollbar-width: thin
+		}
+
+		* {
+			box-sizing: border-box
+		}
+
+		html,
+		body {
+			height: 100%
+		}
+
+		body {
+			margin: 0;
+			background: linear-gradient(180deg, #0b1020, #0d1730 50%, #0b1020);
+			color: var(--text);
+			font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji"
+		}
+
+		.app-header {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			z-index: 10;
+			background: #0b1020cc;
+			backdrop-filter: blur(6px);
+			border-bottom: 1px solid #1d2947
+		}
+
+		.app-header-inner {
+			max-width: 920px;
+			margin: 0 auto;
+			padding: 10px 16px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px
+		}
+
+		.header-spacer {
+			height: 56px
+		}
+
+		.brand {
+			font-size: 18px;
+			font-weight: 700;
+			letter-spacing: .3px;
+			display: flex;
+			align-items: center;
+			gap: 10px
+		}
+
+		.brand .host {
+			color: var(--muted);
+			font-weight: 500;
+			font-size: 13px
+		}
+
+		.gh-link {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			color: #9fb3d9;
+			text-decoration: none
+		}
+
+		.gh-link:hover {
+			color: #cfe1ff
+		}
+
+		.container {
+			max-width: 920px;
+			margin: 0 auto;
+			padding: 32px 16px
+		}
+
+		.small {
+			color: var(--muted);
+			font-size: 13px
+		}
+
+		.panel {
+			background: rgba(18, 26, 46, .8);
+			backdrop-filter: blur(6px);
+			border: 1px solid #1d2947;
+			border-radius: 14px;
+			overflow: hidden;
+			box-shadow: 0 10px 30px rgba(0, 0, 0, .4)
+		}
+
+		.panel h2 {
+			margin: 0;
+			padding: 14px 16px;
+			border-bottom: 1px solid #1d2947;
+			font-size: 16px;
+			display: flex;
+			align-items: center;
+			gap: 8px
+		}
+
+		.panel h2 .select {
+			margin-left: auto
+		}
+
+		.list {
+			padding: 6px
+		}
+
+		.list .row>.resp {
+			display: none
+		}
+
+		.row {
+			display: grid;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 12px;
+			border-radius: 10px;
+			transition: background .15s;
+			grid-template-columns: var(--col-method) minmax(var(--col-path-min), 1fr) minmax(var(--col-desc-min), auto);
+			min-height: 44px
+		}
+
+		.row:hover {
+			background: #0e162a
+		}
+
+		a.row {
+			text-decoration: none;
+			color: inherit
+		}
+
+		a.row:visited {
+			color: inherit
+		}
+
+		.method {
+			font-weight: 700;
+			font-size: 12px;
+			padding: 6px 10px;
+			border-radius: 999px;
+			background: var(--chip);
+			letter-spacing: .6px;
+			min-width: var(--col-method);
+			text-align: center
+		}
+
+		.get {
+			color: #7dd3fc
+		}
+
+		.post {
+			color: #a7f3d0
+		}
+
+		.put {
+			color: #fde68a
+		}
+
+		.del {
+			color: #fecaca
+		}
+
+		.path {
+			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+			color: #e2e8f0;
+			font-size: 14px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis
+		}
+
+		.desc {
+			color: var(--muted);
+			font-size: 13px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis
+		}
+
+		.code {
+			background: #0b1326;
+			border: 1px solid #172243;
+			border-radius: 10px;
+			padding: 14px;
+			margin: 12px
+		}
+
+		code {
+			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+			color: #d1e9ff;
+			font-size: 13px
+		}
+
+		.footer {
+			color: var(--muted);
+			font-size: 12px;
+			text-align: center;
+			margin-top: 22px
+		}
+
+		.badge {
+			display: inline-block;
+			margin-left: 8px;
+			padding: 2px 8px;
+			border-radius: 999px;
+			background: #132042;
+			color: #9cc2ff;
+			font-size: 12px;
+			border: 1px solid #1f2c4a
+		}
+
+		/* API Explorer styles */
+		details.api {
+			border-top: 1px solid #1d2947
+		}
+
+		details.api[open] {
+			background: #0e162a
+		}
+
+		summary.api-row {
+			list-style: none;
+			display: grid;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 12px;
+			cursor: pointer;
+			grid-template-columns: 12px var(--col-method) minmax(var(--col-path-min), 1fr) minmax(var(--col-desc-min), 1fr) var(--col-type);
+			min-height: 44px
+		}
+
+		summary.api-row::-webkit-details-marker {
+			display: none
+		}
+
+		.arrow {
+			display: inline-block;
+			width: 8px;
+			height: 8px;
+			border-right: 2px solid #9fb3d9;
+			border-bottom: 2px solid #9fb3d9;
+			transform: rotate(-45deg);
+			transition: transform .2s ease;
+			margin-right: 4px
+		}
+
+		details[open] .arrow {
+			transform: rotate(45deg)
+		}
+
+		.resp {
+			margin-left: auto;
+			color: #93c5fd;
+			font-size: 12px;
+			background: #0c1733;
+			border: 1px solid #1f2c4a;
+			border-radius: 999px;
+			padding: 2px 8px;
+			justify-self: end;
+			white-space: nowrap
+		}
+
+		.try {
+			padding: 12px;
+			border-top: 1px solid #1d2947
+		}
+
+		.field {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			margin: 8px 0
+		}
+
+		.field input,
+		.field textarea,
+		.field select {
+			flex: 1;
+			min-width: 120px;
+			background: #0b1326;
+			border: 1px solid #172243;
+			border-radius: 8px;
+			color: #d1e9ff;
+			padding: 8px
+		}
+
+		.actions {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			flex-wrap: wrap;
+			margin-top: 8px
+		}
+
+		.btn {
+			background: #132042;
+			border: 1px solid #1f2c4a;
+			color: #9cc2ff;
+			border-radius: 8px;
+			cursor: pointer;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			height: 36px;
+			padding: 0 12px;
+			line-height: 1;
+			text-decoration: none
+		}
+
+		.btn:link,
+		.btn:visited,
+		.btn:hover,
+		.btn:active {
+			color: #9cc2ff;
+			text-decoration: none
+		}
+
+		.btn:focus {
+			outline: 2px solid #1f2c4a;
+			outline-offset: 2px
+		}
+
+		.result {
+			margin-top: 10px;
+			background: #0b1326;
+			border: 1px solid #172243;
+			border-radius: 10px;
+			color: #d1e9ff;
+			padding: 10px;
+			white-space: pre-wrap;
+			max-height: 320px;
+			overflow: auto
+		}
+
+		/* Footer */
+		.app-footer {
+			background: #0b1020;
+			border-top: 1px solid #1d2947
+		}
+
+		.app-footer-inner {
+			max-width: 920px;
+			margin: 0 auto;
+			padding: 10px 16px;
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+			align-items: center;
+			justify-content: space-between
+		}
+
+		@media (min-width: 640px) {
+			.app-footer-inner {
+				flex-direction: row
+			}
+		}
+
+		.app-footer a {
+			color: #7cc4ff;
+			text-decoration: none
+		}
+
+		.app-footer a:hover {
+			text-decoration: underline
+		}
+
+		.app-footer .who {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			color: var(--muted);
+			font-size: 13px
+		}
+
+		.app-footer .who img {
+			width: 22px;
+			height: 22px;
+			border-radius: 999px
+		}
+
+		.app-footer .legal {
+			display: flex;
+			align-items: center;
+			gap: 8px
+		}
+
+		/* Responsive fallback: stack description below on small screens */
+		@media (max-width: 720px) {
+			.row {
+				grid-template-columns: var(--col-method) 1fr
+			}
+
+			.row .desc {
+				grid-column: 1 / -1
+			}
+
+			summary.api-row {
+				grid-template-columns: 12px var(--col-method) 1fr
+			}
+
+			summary.api-row .desc {
+				grid-column: 1 / -1
+			}
+
+			summary.api-row .resp {
+				grid-column: 1 / -1;
+				justify-self: start
+			}
+		}
+
+		/* Custom Scrollbar */
+		::-webkit-scrollbar {
+			width: 6px;
+			height: 6px
+		}
+
+		::-webkit-scrollbar-track {
+			background: transparent
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: #1f2c4a;
+			border-radius: 99px
+		}
+
+		::-webkit-scrollbar-thumb:hover {
+			background: #334466
+		}
+
+		::-webkit-scrollbar-corner {
+			background: transparent
+		}
+	</style>
+</head>
+
+<body>
+	<header id="app-header" class="app-header">
+		<div class="app-header-inner">
+			<div class="brand">
+				<span>Disposable Email Domains API</span>
+				<span class="host" id="hostText" title="Detected host"></span>
+			</div>
+			<a class="gh-link" href="https://github.com/jonasfroeller/disposable-email-domains" target="_blank"
+				rel="noopener" aria-label="View source on GitHub">
+				<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"
+					focusable="false">
+					<rect width="24" height="24" fill="none" />
+					<path fill="currentColor"
+						d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5c.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34c-.46-1.16-1.11-1.47-1.11-1.47c-.91-.62.07-.6.07-.6c1 .07 1.53 1.03 1.53 1.03c.87 1.52 2.34 1.07 2.91.83c.09-.65.35-1.09.63-1.34c-2.22-.25-4.55-1.11-4.55-4.92c0-1.11.38-2 1.03-2.71c-.1-.25-.45-1.29.1-2.64c0 0 .84-.27 2.75 1.02c.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02c.55 1.35.2 2.39.1 2.64c.65.71 1.03 1.6 1.03 2.71c0 3.82-2.34 4.66-4.57 4.91c.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2" />
+				</svg>
+			</a>
+		</div>
+	</header>
+	<div class="header-spacer"></div>
+	<div class="container">
+
+		<div class="panel">
+			<h2>
+				<span>View</span>
+				<span class="badge">net/http</span>
+				<select id="viewSelect" class="select"
+					style="background:#0b1326;border:1px solid #172243;border-radius:8px;color:#d1e9ff;padding:6px 8px">
+					<option value="endpoints" selected>Endpoints</option>
+					<option value="explorer">API Explorer</option>
+				</select>
+			</h2>
+			<div class="list" id="endpointsView">
+				<a class="row" href="/" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/</span><span class="desc">Index (this page)</span></a>
+				<a class="row" href="/healthz" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/healthz</span><span class="desc">Health check</span></a>
+				<a class="row" href="/livez" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/livez</span><span class="desc">Liveness (always OK)</span></a>
+				<a class="row" href="/status" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/status</span><span class="desc">Status snapshot (JSON)</span></a>
+				<a class="row" href="/readyz" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/readyz</span><span class="desc">Readiness probe</span></a>
+				<a class="row" href="/blocklist" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/blocklist</span><span class="desc">List blocklist (JSON)</span></a>
+				<div class="row"><span class="method post">POST</span><span class="path">/blocklist</span><span
+						class="desc">Extend blocklist (JSON)</span></div>
+				<a class="row" href="/check?q=test@example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/check</span><span class="desc">JSON check via
+						?q=</span></a>
+				<a class="row" href="/q?q=test@example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/q</span><span class="desc">Alias for /check?q=
+						(WAF-safe)</span></a>
+				<a class="row" href="/check/emails/test%40example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/check/emails/{email}</span><span
+						class="desc">Check email (JSON)</span></a>
+				<a class="row" href="/check/domains/example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/check/domains/{domain}</span><span
+						class="desc">Check domain (JSON)</span></a>
+				<a class="row" href="/emails/test%40example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/emails/{email}</span><span class="desc">Alias
+						(WAF-safe) for email check (JSON)</span></a>
+				<a class="row" href="/domains/example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/domains/{domain}</span><span class="desc">Alias
+						(WAF-safe) for domain check (JSON)</span></a>
+				<a class="row" href="/e/test%40example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/e/{email}</span><span class="desc">Short alias
+						(WAF-safe) for email check (JSON)</span></a>
+				<a class="row" href="/d/example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/d/{domain}</span><span class="desc">Short alias
+						(WAF-safe) for domain check (JSON)</span></a>
+				<div class="row"><span class="method post">POST</span><span class="path">/check/emails</span><span
+						class="desc">Batch check emails (JSON array or text/plain)</span></div>
+				<div class="row"><span class="method post">POST</span><span class="path">/check/domains</span><span
+						class="desc">Batch check domains (JSON array or text/plain)</span></div>
+				<a class="row" href="/validate" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/validate</span><span class="desc">Validate lists (JSON)</span></a>
+				<div class="row"><span class="method post">POST</span><span class="path">/reload</span><span
+						class="desc">Full reload (optional)</span></div>
+				<a class="row" href="/report" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/report</span><span class="desc">Validate report (HTML)</span></a>
+				<a class="row" href="/report/emails/test%40example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/report/emails/{email}</span><span
+						class="desc">Check report for email (HTML)</span></a>
+				<a class="row" href="/report/domains/example.com" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/report/domains/{domain}</span><span
+						class="desc">Check report for domain (HTML)</span></a>
+				<a class="row" href="/allowlist.conf" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/allowlist.conf</span><span
+						class="desc">Download allowlist</span></a>
+				<a class="row" href="/blocklist.conf" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/blocklist.conf</span><span
+						class="desc">Download blocklist</span></a>
+				<a class="row" href="/public_suffix_list.dat" target="_blank" rel="noopener"><span
+						class="method get">GET</span><span class="path">/public_suffix_list.dat</span><span
+						class="desc">Download PSL snapshot</span></a>
+				<a class="row" href="/psl" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/psl</span><span class="desc">Download PSL snapshot (alias)</span></a>
+				<a class="row" href="/psl.txt" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/psl.txt</span><span class="desc">Download PSL snapshot (alias)</span></a>
+				<a class="row" href="/metrics" target="_blank" rel="noopener"><span class="method get">GET</span><span
+						class="path">/metrics</span><span class="desc">Prometheus metrics</span></a>
+				<div class="row"><span class="method post">POST</span><span class="path">/admin/psl/refresh</span><span
+						class="desc">Force PSL refresh</span></div>
+			</div>
+			<div class="list" id="explorerView" style="display:none">
+				<div id="apiExplorerList"></div>
+			</div>
+		</div>
+
+		<div class="panel" style="margin-top:16px">
+			<h2>Quick start</h2>
+			<div class="code"><code>curl -sS http://{{.Host}}/healthz</code></div>
+			<div class="code"><code>curl -sS http://{{.Host}}/blocklist</code></div>
+			<div class="code">
+				<code>curl -sS -H "X-Admin-Token: &lt;token&gt;" -H "Content-Type: application/json" -d '{"entries":["foo.com","bar.io"]}' http://{{.Host}}/blocklist</code>
+			</div>
+			<div class="code">
+				<code>curl -sS -H "X-Admin-Token: &lt;token&gt;" -H "Content-Type: application/json" -d '{"url":"https://example.com/list.txt"}' http://{{.Host}}/blocklist</code>
+			</div>
+			<div class="code"><code>curl -sS 'http://{{.Host}}/check?q=test@example.com'</code></div>
+			<div class="code"><code>curl -sS http://{{.Host}}/validate</code></div>
+			<div class="code"><code>curl -sS http://{{.Host}}/psl</code></div>
+			<div class="code"><code>http://{{.Host}}/report/check?input=test%40example.com</code></div>
+			<div class="code"><code>http://{{.Host}}/report</code></div>
+			<div class="small" style="padding:0 14px 12px 14px;color:#9fb3d9">Tip: add “| jq” to pretty-print JSON if
+				you have jq installed.</div>
+		</div>
+
+		<div class="panel" style="margin-top:16px">
+			<h2>Bulk add from URLs</h2>
+			<div class="list">
+				<div class="row" style="display:block">
+					<form id="bulkForm" onsubmit="return false;" novalidate>
+						<div class="small" style="margin-bottom:8px">Paste one or more URLs (one per line). Each URL
+							should point to a plaintext list where non-empty, non-comment lines are domains.</div>
+						<textarea id="urlsInput" rows="6"
+							style="width:100%;background:#0b1326;border:1px solid #172243;border-radius:10px;color:#d1e9ff;padding:12px;line-height:1.6"
+							placeholder="https://example.com/list1.txt&#10;https://example.com/list2.txt"></textarea>
+						<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+							<button id="addUrlsBtn" type="button"
+								style="background:#132042;border:1px solid #1f2c4a;color:#9cc2ff;border-radius:8px;padding:8px 12px;cursor:pointer">Add
+								to blocklist</button>
+							<label class="small" style="display:flex;align-items:center;gap:6px"><input id="reloadAfter"
+									type="checkbox" checked /> <span>Reload lists after adding</span></label>
+							<input id="adminTokenInput" type="password" placeholder="Admin token" autocomplete="off"
+								style="flex:1;min-width:200px;background:#0b1326;border:1px solid #172243;border-radius:8px;color:#d1e9ff;padding:8px" />
+						</div>
+						<div id="urlsResult"
+							style="display:none;margin-top:10px;width:100%;background:#0b1326;border:1px solid #172243;border-radius:10px;color:#d1e9ff;padding:10px;white-space:pre-wrap">
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<script nonce="{{.Nonce}}">
+			// Endpoint metadata injected from server
+			const __ENDPOINTS__ = {{.Endpoints }};
+			const __HOST__ = "{{.Host}}";
+			(function showHost() {
+				try {
+					var el = document.getElementById('hostText');
+					if (el) { el.textContent = 'Host: ' + (window.location.host || __HOST__); }
+				} catch (e) { }
+			})();
+			(function mountViewSelector() {
+				const sel = document.getElementById('viewSelect');
+				const endpoints = document.getElementById('endpointsView');
+				const explorer = document.getElementById('explorerView');
+				if (!sel || !endpoints || !explorer) return;
+				sel.addEventListener('change', () => {
+					const v = sel.value;
+					endpoints.style.display = (v === 'endpoints') ? 'block' : 'none';
+					explorer.style.display = (v === 'explorer') ? 'block' : 'none';
+				});
+			})();
+			(function renderAPIExplorer() {
+				const root = document.getElementById('apiExplorerList');
+				if (!root) return;
+				for (const e of __ENDPOINTS__) {
+					const details = document.createElement('details');
+					details.className = 'api';
+					const summary = document.createElement('summary');
+					summary.className = 'api-row';
+					const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.setAttribute('aria-hidden', 'true');
+					const m = document.createElement('span'); m.className = 'method ' + (e.method.toLowerCase()); m.textContent = e.method;
+					const p = document.createElement('span'); p.className = 'path'; p.textContent = e.path;
+					const d = document.createElement('span'); d.className = 'desc'; d.textContent = e.desc;
+					const t = document.createElement('span'); t.className = 'resp'; t.textContent = 'type: ' + e.resp_type;
+					summary.append(arrow, m, p, d, t);
+					details.append(summary);
+					const tryDiv = document.createElement('div'); tryDiv.className = 'try';
+					// URL field
+					const urlField = document.createElement('div'); urlField.className = 'field';
+					const urlLabel = document.createElement('label'); urlLabel.className = 'small'; urlLabel.textContent = 'URL';
+					const urlInput = document.createElement('input'); urlInput.value = (e.sample_url || e.path);
+					urlInput.placeholder = e.path;
+					urlField.append(urlLabel, urlInput);
+					tryDiv.append(urlField);
+					// Token field when needed or for any non-GET
+					if (e.needs_token || e.method !== 'GET') {
+						const tok = document.createElement('div'); tok.className = 'field';
+						const l = document.createElement('label'); l.className = 'small'; l.textContent = 'X-Admin-Token';
+						const i = document.createElement('input'); i.type = 'password'; i.placeholder = 'optional for GET; required for admin endpoints';
+						tok.append(l, i); tryDiv.append(tok); tryDiv._token = i;
+					}
+					// Body for POST/PUT/PATCH
+					if (e.method !== 'GET') {
+						const ctField = document.createElement('div'); ctField.className = 'field';
+						const ctl = document.createElement('label'); ctl.className = 'small'; ctl.textContent = 'Content-Type';
+						const cts = document.createElement('select');
+						for (const opt of ['application/json', 'text/plain']) { const o = document.createElement('option'); o.value = opt; o.textContent = opt; if (opt === e.content_type) o.selected = true; cts.append(o); }
+						ctField.append(ctl, cts); tryDiv.append(ctField);
+						const bodyField = document.createElement('div'); bodyField.className = 'field';
+						const bl = document.createElement('label'); bl.className = 'small'; bl.textContent = 'Body';
+						const ta = document.createElement('textarea'); ta.rows = 6; ta.value = e.body_template || '';
+						bodyField.append(bl, ta); tryDiv.append(bodyField); tryDiv._body = ta; tryDiv._ct = cts;
+					}
+					// Actions
+					const actions = document.createElement('div'); actions.className = 'actions';
+					const send = document.createElement('button'); send.className = 'btn'; send.textContent = 'Send';
+					const open = document.createElement('a'); open.className = 'btn'; open.textContent = 'Open'; open.target = '_blank'; open.rel = 'noopener';
+					actions.append(send, open); tryDiv.append(actions);
+					const result = document.createElement('div'); result.className = 'result'; result.style.display = 'none'; tryDiv.append(result);
+
+					const buildURL = (u) => {
+						// Prefer relative paths for same-origin calls to avoid host rewriting issues in production.
+						if (!/^https?:\/\//i.test(u)) { return (u.startsWith('/') ? u : '/' + u); }
+						return u;
+					};
+					open.addEventListener('click', (ev) => {
+						ev.preventDefault();
+						let raw = urlInput.value.trim() || '/';
+						// If default sample equals the summary URL, open the base path instead; otherwise leave as-is
+						const defaultSample = e.sample_url || e.path;
+						if (defaultSample && defaultSample.includes('summary=true') && raw === defaultSample) {
+							raw = e.path || '/';
+						}
+						open.href = buildURL(raw);
+						window.open(open.href, '_blank');
+					});
+					send.addEventListener('click', async () => {
+						const full = buildURL(urlInput.value.trim() || '/');
+						result.style.display = 'block'; result.textContent = 'Sending...';
+						const init = { method: e.method, headers: {} };
+						if (tryDiv._token && tryDiv._token.value) { init.headers['X-Admin-Token'] = tryDiv._token.value; }
+						if (e.method !== 'GET') {
+							const ct = tryDiv._ct.value;
+							init.headers['Content-Type'] = ct;
+							init.body = tryDiv._body.value || '';
+						}
+						const t0 = performance.now();
+						try {
+							const resp = await fetch(full, init);
+							const dt = (performance.now() - t0).toFixed(0);
+							const ctype = resp.headers.get('content-type') || '';
+							let bodyText;
+							if (ctype.includes('application/json')) {
+								const data = await resp.json().catch(() => null);
+								bodyText = data ? JSON.stringify(data, null, 2) : await resp.text();
+							} else {
+								bodyText = await resp.text();
+							}
+							result.textContent = `HTTP ${resp.status} ${resp.statusText} (${dt} ms)\nContent-Type: ${ctype}\n\n${bodyText}`;
+						} catch (err) {
+							result.textContent = 'Request failed: ' + err;
+						}
+					});
+
+					details.append(tryDiv);
+					root.append(details);
+				}
+			})();
+
+			(() => {
+				const defaultUrls = [
+					'https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/refs/heads/main/disposable_email_blocklist.conf',
+					'https://disposable.github.io/disposable-email-domains/domains.txt',
+					'https://raw.githubusercontent.com/7c/fakefilter/refs/heads/main/txt/data.txt',
+					'https://raw.githubusercontent.com/FGRibreau/mailchecker/refs/heads/master/list.txt',
+					'https://raw.githubusercontent.com/amieiro/disposable-email-domains/refs/heads/master/denyDomains.txt',
+					'https://github.com/gblmarquez/disposable-email-domains/raw/refs/heads/main/disposable_email_domains_blocklist.txt',
+					'https://github.com/IntegerAlex/disposable-email-detector/raw/refs/heads/main/index.json'
+				];
+
+				const ta = document.getElementById('urlsInput');
+				if (ta && !ta.value.trim()) {
+					ta.value = defaultUrls.join('\n');
+				}
+
+				const btn = document.getElementById('addUrlsBtn');
+				if (!btn) return;
+				btn.addEventListener('click', async () => {
+					const taEl = document.getElementById('urlsInput');
+					const resEl = document.getElementById('urlsResult');
+					const reload = document.getElementById('reloadAfter').checked;
+					const urls = (taEl.value || '').split(/\r?\n/).map(s => s.trim()).filter(s => /^https?:\/\//i.test(s));
+					if (urls.length === 0) {
+						resEl.style.display = 'none';
+						resEl.textContent = '';
+						return;
+					}
+					resEl.style.display = 'block';
+					resEl.textContent = 'Processing ' + urls.length + ' URL(s)...';
+					try {
+						const token = (document.getElementById('adminTokenInput') || {}).value || '';
+						if (!token) {
+							resEl.style.display = 'block';
+							resEl.textContent = 'Admin token required.';
+							return;
+						}
+						const resp = await fetch('/blocklist' + (reload ? '?reload=true' : ''), {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+							body: JSON.stringify({ urls })
+						});
+						const data = await resp.json().catch(() => ({}));
+						if (!resp.ok) {
+							resEl.style.display = 'block';
+							const errMsg = (data && data.error && (data.error.message || data.error.code)) ? (data.error.message || data.error.code) : ((typeof data.error === 'string') ? data.error : (resp.status + ' ' + resp.statusText));
+							const prefix = (resp.status === 401 || resp.status === 403) ? 'Auth error: ' : 'Error: ';
+							resEl.textContent = prefix + errMsg;
+							return;
+						}
+						resEl.style.display = 'block';
+						resEl.textContent = 'Appended: ' + (data.appended || 0) + ', Skipped duplicates: ' + (data.skipped_duplicates || 0) + (data.reloaded ? ', Reloaded: true' : '');
+					} catch (e) {
+						resEl.style.display = 'block';
+						resEl.textContent = 'Request failed: ' + e;
+					}
+				});
+			})();
+		</script>
+	</div>
+	<footer id="app-footer" class="app-footer">
+		<div class="app-footer-inner">
+			<div class="who">
+				<img src="https://avatars.githubusercontent.com/u/121523551?v=4" alt="Jonas Fröller" loading="lazy" />
+				<span>Made by <a href="https://jonasfroeller.is-a.dev" target="_blank" rel="noopener">Jonas
+						Fröller</a></span>
+			</div>
+			<div class="legal">
+				<img src="https://merginit.com/favicon.png" alt="Imprint" width="22" height="22" loading="lazy" />
+				<a href="https://merginit.com/legal/imprint" target="_blank" rel="noopener">Imprint</a>
+			</div>
+		</div>
+	</footer>
+</body>
+
+</html>
