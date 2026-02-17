@@ -72,7 +72,11 @@ jobs:
             -H "X-Admin-Token: ${ADMIN_TOKEN}" \
             -X POST \
             --data "{\"urls\":${urls_json}}" \
-            "http://127.0.0.1:8080/blocklist" | tee resp.json
+            "http://127.0.0.1:8080/blocklist" -o resp.json
+
+          # Print summary only to avoid log buffer overflow/timeouts
+          echo "Response meta:"
+          jq '.meta' resp.json || cat resp.json
 
           appended=$(jq -r '.appended // 0' resp.json)
           skipped=$(jq -r '.skipped_duplicates // 0' resp.json)
