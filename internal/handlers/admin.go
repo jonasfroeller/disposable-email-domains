@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"disposable-email-domains/internal/metrics"
+
+	"golang.org/x/net/publicsuffix"
 )
 
 func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +170,12 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 						if len(v) > maxLineLen {
 							continue
 						}
+						// Enforce eTLD+1
+						if etld1, err := publicsuffix.EffectiveTLDPlusOne(v); err == nil && etld1 != "" {
+							v = etld1
+						} else {
+							continue // Skip if not a valid registrable domain (e.g. is a TLD)
+						}
 						if len(candidates) < maxPerFetchEntries {
 							candidates = append(candidates, v)
 							incomingSet[v] = struct{}{}
@@ -197,6 +205,12 @@ func (a *API) Blocklist(w http.ResponseWriter, r *http.Request) {
 					}
 					if len(line) > maxLineLen {
 						continue
+					}
+					// Enforce eTLD+1
+					if etld1, err := publicsuffix.EffectiveTLDPlusOne(line); err == nil && etld1 != "" {
+						line = etld1
+					} else {
+						continue // Skip if not a valid registrable domain (e.g. is a TLD)
 					}
 					if len(candidates) < maxPerFetchEntries {
 						candidates = append(candidates, line)
