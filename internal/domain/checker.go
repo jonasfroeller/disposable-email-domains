@@ -379,7 +379,7 @@ func (c *Checker) Validate() Report {
 	rep.DuplicatesBlock = dupes(rawB)
 	rep.Intersection = inter
 
-	if len(rep.PublicSuffixInBlock) > 0 || len(rep.ThirdLevelInBlock) > 0 || len(rep.NonLowercaseAllow) > 0 || len(rep.NonLowercaseBlock) > 0 || len(rep.DuplicatesAllow) > 0 || len(rep.DuplicatesBlock) > 0 || len(rep.Intersection) > 0 {
+	if len(rep.PublicSuffixInBlock) > 0 || len(rep.NonLowercaseAllow) > 0 || len(rep.NonLowercaseBlock) > 0 || len(rep.DuplicatesAllow) > 0 || len(rep.DuplicatesBlock) > 0 || len(rep.Intersection) > 0 {
 		rep.ErrorsFound = true
 	}
 	return rep
