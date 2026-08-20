@@ -5,8 +5,8 @@
 // Please pull this list from, and only from https://publicsuffix.org/list/public_suffix_list.dat,
 // rather than any other VCS sites. Pulling from any other URL is not guaranteed to be supported.
 
-// VERSION: 2026-08-17_18-44-50_UTC
-// COMMIT: fe5aa073ba579b9d5ae92958b63a7d1de8c13e3a
+// VERSION: 2026-08-19_15-44-33_UTC
+// COMMIT: d91e55ea128af6218897d3b3723b28af7138c3d6
 
 // Instructions on pulling and using this list can be found at https://publicsuffix.org/list/.
 
@@ -11347,7 +11347,6 @@ beep.pl
 // Aiven : https://aiven.io/
 // Submitted by Aiven Security Team <security+appdomains@aiven.io>
 aiven.app
-aivencloud.com
 *.aivencloud.com
 
 // Akamai : https://www.akamai.com/
